@@ -2091,8 +2091,9 @@ function renderExportCanvasInterp(size, bgColor, dotColor, shape, matA, matB, we
 }
 
 // Capture animation frames for the rotation loop with sub-frame interpolation
-function captureAnimationFrames(size, bgColor, dotColor, shape, dotRatio, transparent, frames, weightFrames, timings, loopStart) {
+function captureAnimationFrames(size, bgColor, dotColor, shape, dotRatio, transparent, frames, weightFrames, timings, loopStart, speed) {
   const SUBSTEPS = 6; // sub-frames per transition
+  const speedFactor = 1 / (speed || 1); // slower speed = longer delays
   const result = [];
   const rotStart = loopStart - 1; // index of first rotation frame
   const rotEnd = frames.length;
@@ -2101,7 +2102,7 @@ function captureAnimationFrames(size, bgColor, dotColor, shape, dotRatio, transp
   for (let i = 0; i < rotCount; i++) {
     const frameIdx = rotStart + i;
     const nextIdx = rotStart + ((i + 1) % rotCount);
-    const delayMs = Math.round(timings[frameIdx] / SUBSTEPS);
+    const delayMs = Math.round((timings[frameIdx] * speedFactor) / SUBSTEPS);
 
     for (let sub = 0; sub < SUBSTEPS; sub++) {
       const t = sub / SUBSTEPS;
@@ -2439,7 +2440,7 @@ document.getElementById('export-btn').addEventListener('click', async () => {
       // Capture frames at 256px
       const frames256 = captureAnimationFrames(
         256, v.bg || '#000000', v.dot, edShape,
-        edDotRatio, v.transparent, edFrames, edWeightFrames, edTimings, edLoopStart
+        edDotRatio, v.transparent, edFrames, edWeightFrames, edTimings, edLoopStart, editorSpeed
       );
 
       // GIF at 256px
@@ -2453,7 +2454,7 @@ document.getElementById('export-btn').addEventListener('click', async () => {
       // GIF at 512px
       const frames512 = captureAnimationFrames(
         512, v.bg || '#000000', v.dot, edShape,
-        edDotRatio, v.transparent, edFrames, edWeightFrames, edTimings, edLoopStart
+        edDotRatio, v.transparent, edFrames, edWeightFrames, edTimings, edLoopStart, editorSpeed
       );
       const gif512Blob = await generateGIF(frames512, 512);
       animFolder.file(`logo-${vk}-512.gif`, gif512Blob);
