@@ -171,6 +171,8 @@ jenner-logo-export/
 ├── transparent/        # Same sizes, no background
 ├── on-white/           # White bg, auto-adjusted dot color
 ├── on-black/           # Black bg, auto-adjusted dot color
+├── color-on-white/     # White bg, original dot color
+├── color-on-black/     # Black bg, original dot color
 ├── mono-on-white/      # White bg, dark dots (#1c1c1e)
 ├── mono-on-black/      # Black bg, light dots (#f0efe8)
 ├── svg/
@@ -178,6 +180,8 @@ jenner-logo-export/
 │   ├── logo-transparent.svg
 │   ├── logo-on-white.svg
 │   ├── logo-on-black.svg
+│   ├── logo-color-on-white.svg
+│   ├── logo-color-on-black.svg
 │   ├── logo-mono-on-white.svg
 │   └── logo-mono-on-black.svg
 └── animation/
@@ -188,7 +192,7 @@ jenner-logo-export/
     └── logo-{variation}.apng        # Animated PNG (full quality, looping)
 ```
 
-**6 background variations × 6 platform size sets + 6 SVGs + 6 animation sets** — everything needed for web, desktop, mobile, and marketing use.
+**8 background variations × 6 platform size sets + 8 SVGs + 8 animation sets** — everything needed for web, desktop, mobile, and marketing use.
 
 #### Animation Files
 
