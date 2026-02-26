@@ -874,7 +874,8 @@ let cardCounter = 0;
 
 class LogoCard {
   constructor(config) {
-    this.id = String(++cardCounter).padStart(2, '0');
+    // Use explicit stableId if provided, otherwise auto-increment
+    this.id = config.stableId || String(++cardCounter).padStart(2, '0');
     this.variant = config.variant;
     this.shape = config.shape;
     this.color = config.color;
@@ -1162,6 +1163,7 @@ for (const variant of VARIANTS) {
 
 const AA_VARIATIONS = [
   {
+    stableId: 'AA1',
     // Clear J with gentle center pulse
     customName: 'aa-clear',
     variant: 'heavy-7', shape: 'circle', color: 'dark/amber', sizing: 'trail',
@@ -1181,6 +1183,7 @@ const AA_VARIATIONS = [
     centerProfile: [0.20, 0.20, 0.20, 0.20, 0.15, 0.35, 0.45, 0.30],
   },
   {
+    stableId: 'AA2',
     // Bolder stroke, more dramatic center breathing
     customName: 'aa-bold',
     variant: 'heavy-7', shape: 'circle', color: 'dark/amber', sizing: 'trail',
@@ -1192,6 +1195,7 @@ const AA_VARIATIONS = [
     centerProfile: [0.20, 0.20, 0.20, 0.20, 0.12, 0.40, 0.55, 0.35],
   },
   {
+    stableId: 'AA3',
     // High contrast — stem pops hard, deep center dip
     customName: 'aa-contrast',
     variant: 'heavy-7', shape: 'circle', color: 'dark/amber', sizing: 'trail',
@@ -1203,6 +1207,7 @@ const AA_VARIATIONS = [
     centerProfile: [0.15, 0.15, 0.15, 0.15, 0.10, 0.45, 0.60, 0.40],
   },
   {
+    stableId: 'AA4',
     // Softer AA — narrower weight range, subtler center motion
     customName: 'aa-soft',
     variant: 'heavy-7', shape: 'circle', color: 'dark/amber', sizing: 'trail',
@@ -1214,6 +1219,7 @@ const AA_VARIATIONS = [
     centerProfile: [0.25, 0.25, 0.25, 0.25, 0.20, 0.35, 0.42, 0.30],
   },
   {
+    stableId: 'AA5',
     // Even base, strong graduated stem — reads like a well-hinted glyph
     customName: 'aa-hinted',
     variant: 'heavy-7', shape: 'circle', color: 'dark/amber', sizing: 'trail',
@@ -1232,6 +1238,7 @@ const AA_VARIATIONS = [
 
 const CENTER_PULSE_VARIATIONS = [
   {
+    stableId: 'CP1',
     // full-9 wave, dark/light — center breathes: smallest at canonical (0°), largest at 180°
     customName: 'pulse-dl-wave',
     variant: 'full-9', shape: 'circle', color: 'dark/light', sizing: 'wave',
@@ -1243,6 +1250,7 @@ const CENTER_PULSE_VARIATIONS = [
     centerProfile: [0.20, 0.45, 0.65, 0.45, 0.20, 0.45, 0.65, 0.45],
   },
   {
+    stableId: 'CP2',
     customName: 'pulse-dl-trail',
     variant: 'full-9', shape: 'circle', color: 'dark/light', sizing: 'trail',
     customColors: { bg: '#1c1c1e', dot: '#f0efe8' },
@@ -1251,6 +1259,7 @@ const CENTER_PULSE_VARIATIONS = [
     centerProfile: [0.20, 0.45, 0.65, 0.45, 0.20, 0.45, 0.65, 0.45],
   },
   {
+    stableId: 'CP3',
     customName: 'pulse-da-wave',
     variant: 'full-9', shape: 'circle', color: 'dark/amber', sizing: 'wave',
     customColors: { bg: '#1c1c1e', dot: '#e8a435' },
@@ -1259,6 +1268,7 @@ const CENTER_PULSE_VARIATIONS = [
     centerProfile: [0.20, 0.45, 0.65, 0.45, 0.20, 0.45, 0.65, 0.45],
   },
   {
+    stableId: 'CP4',
     customName: 'pulse-da-trail',
     variant: 'full-9', shape: 'circle', color: 'dark/amber', sizing: 'trail',
     customColors: { bg: '#1c1c1e', dot: '#e8a435' },
@@ -1267,6 +1277,78 @@ const CENTER_PULSE_VARIATIONS = [
     centerProfile: [0.20, 0.45, 0.65, 0.45, 0.20, 0.45, 0.65, 0.45],
   },
 ];
+
+// ============ SMOOTH-TRAIL FULL-9 VARIATIONS ============
+// Full-9 with 8 distinct weight matrices: each frame is a 45° angular step,
+// interpolated between the 4 cardinal rotations of the trail weights.
+// This halves the per-frame delta vs. repeating 4 rotations × 2.
+//
+// W_cardinal = [W0, R(W0), R²(W0), R³(W0)]
+// W_smooth[2k]   = W_cardinal[k]
+// W_smooth[2k+1] = lerp(W_cardinal[k], W_cardinal[(k+1)%4], 0.5)
+//
+// Center profile is cosine-shaped: smallest at 0° (J visible), largest at 180°.
+// Values are hardcoded constants — deterministic across builds.
+
+const SMOOTH_TRAIL_VARIATIONS = [
+  {
+    stableId: 'ST1',
+    customName: 'smooth-da-trail',
+    variant: 'full-9', shape: 'circle', color: 'dark/amber', sizing: 'trail',
+    customColors: { bg: '#1c1c1e', dot: '#e8a435' },
+    skipBuild: true,
+    rotationPeriods: 8,
+    customRotWeights: [
+      // P1 (0°) = W0
+      [[0.40, 0.30, 1.30], [0.55, 0.20, 1.15], [0.70, 0.85, 1.00]],
+      // P2 (45°) = lerp(W0, W1, 0.5)
+      [[0.55, 0.43, 0.85], [0.70, 0.33, 0.73], [0.85, 1.00, 1.15]],
+      // P3 (90°) = W1
+      [[0.70, 0.55, 0.40], [0.85, 0.45, 0.30], [1.00, 1.15, 1.30]],
+      // P4 (135°) = lerp(W1, W2, 0.5)
+      [[0.85, 0.70, 0.55], [1.00, 0.55, 0.43], [1.15, 0.73, 0.85]],
+      // P5 (180°) = W2
+      [[1.00, 0.85, 0.70], [1.15, 0.65, 0.55], [1.30, 0.30, 0.40]],
+      // P6 (225°) = lerp(W2, W3, 0.5)
+      [[1.15, 1.00, 0.85], [0.73, 0.55, 0.70], [0.85, 0.43, 0.55]],
+      // P7 (270°) = W3
+      [[1.30, 1.15, 1.00], [0.30, 0.45, 0.85], [0.40, 0.55, 0.70]],
+      // P8 (315°) = lerp(W3, W0, 0.5)
+      [[0.85, 0.73, 1.15], [0.43, 0.33, 1.00], [0.55, 0.70, 0.85]],
+    ],
+  },
+  {
+    stableId: 'ST2',
+    customName: 'smooth-dl-trail',
+    variant: 'full-9', shape: 'circle', color: 'dark/light', sizing: 'trail',
+    customColors: { bg: '#1c1c1e', dot: '#f0efe8' },
+    skipBuild: true,
+    rotationPeriods: 8,
+    customRotWeights: [
+      [[0.40, 0.30, 1.30], [0.55, 0.20, 1.15], [0.70, 0.85, 1.00]],
+      [[0.55, 0.43, 0.85], [0.70, 0.33, 0.73], [0.85, 1.00, 1.15]],
+      [[0.70, 0.55, 0.40], [0.85, 0.45, 0.30], [1.00, 1.15, 1.30]],
+      [[0.85, 0.70, 0.55], [1.00, 0.55, 0.43], [1.15, 0.73, 0.85]],
+      [[1.00, 0.85, 0.70], [1.15, 0.65, 0.55], [1.30, 0.30, 0.40]],
+      [[1.15, 1.00, 0.85], [0.73, 0.55, 0.70], [0.85, 0.43, 0.55]],
+      [[1.30, 1.15, 1.00], [0.30, 0.45, 0.85], [0.40, 0.55, 0.70]],
+      [[0.85, 0.73, 1.15], [0.43, 0.33, 1.00], [0.55, 0.70, 0.85]],
+    ],
+  },
+];
+
+// Add smooth-trail divider + cards
+const stDivider = document.createElement('div');
+stDivider.className = 'grid-divider';
+stDivider.textContent = 'Smooth Trail — full-9 with 8-step interpolated rotation';
+grid.appendChild(stDivider);
+
+for (const cfg of SMOOTH_TRAIL_VARIATIONS) {
+  const card = new LogoCard(cfg);
+  card.el.classList.add('custom-card');
+  allCards.push(card);
+  grid.appendChild(card.el);
+}
 
 // Add center-pulse divider + cards
 const cpDivider = document.createElement('div');

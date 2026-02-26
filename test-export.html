@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jenner Logo — Export Validation Tests</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', system-ui, sans-serif;
+    background: #111;
+    color: #e0e0e0;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #888; margin-bottom: 24px; }
+  .summary {
+    background: #1a1a1a;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .summary-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .summary-stat .num {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: 'SF Mono', Menlo, monospace;
+  }
+  .summary-stat .lbl {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #777;
+  }
+  .num.pass { color: #4caf50; }
+  .num.fail { color: #f44336; }
+  .num.total { color: #aaa; }
+  .run-btn {
+    padding: 10px 24px;
+    border-radius: 8px;
+    border: 1px solid #5a8a5a;
+    background: #3a5a3a;
+    color: #ddd;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+    margin-left: auto;
+  }
+  .run-btn:hover { background: #4a6a4a; color: #fff; }
+  .run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .category {
+    background: #1a1a1a;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .category-header {
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .category-header:hover { background: #222; }
+  .category-header h2 {
+    font-size: 15px;
+    font-weight: 600;
+    flex: 1;
+  }
+  .badge {
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .badge.pass { background: #1b3a1b; color: #4caf50; }
+  .badge.fail { background: #3a1b1b; color: #f44336; }
+  .badge.pending { background: #2a2a2a; color: #777; }
+  .badge.running { background: #2a2a1a; color: #e8a435; }
+  .chevron {
+    font-size: 12px;
+    color: #666;
+    transition: transform 0.2s;
+  }
+  .category.expanded .chevron { transform: rotate(90deg); }
+  .category-body {
+    display: none;
+    padding: 0 20px 16px;
+  }
+  .category.expanded .category-body { display: block; }
+  .test-row {
+    padding: 6px 0;
+    border-bottom: 1px solid #222;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+  }
+  .test-row:last-child { border-bottom: none; }
+  .test-icon { font-size: 14px; min-width: 20px; text-align: center; }
+  .test-icon.pass { color: #4caf50; }
+  .test-icon.fail { color: #f44336; }
+  .test-icon.pending { color: #555; }
+  .test-name { flex: 1; color: #bbb; }
+  .test-detail {
+    font-size: 11px;
+    color: #777;
+    font-family: 'SF Mono', Menlo, monospace;
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .test-detail.fail-detail { color: #f44336; }
+  .progress-bar {
+    width: 100%;
+    height: 3px;
+    background: #222;
+    border-radius: 2px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .progress-bar .fill {
+    height: 100%;
+    background: #5a8a5a;
+    width: 0%;
+    transition: width 0.1s;
+    border-radius: 2px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Jenner Logo — Export Validation Tests</h1>
+<p class="subtitle">Validates PNG dimensions, background colors, SVG structure, ZIP contents, and rotation math.</p>
+
+<div class="summary">
+  <div class="summary-stat">
+    <span class="num total" id="total-count">0</span>
+    <span class="lbl">Total</span>
+  </div>
+  <div class="summary-stat">
+    <span class="num pass" id="pass-count">0</span>
+    <span class="lbl">Passed</span>
+  </div>
+  <div class="summary-stat">
+    <span class="num fail" id="fail-count">0</span>
+    <span class="lbl">Failed</span>
+  </div>
+  <button class="run-btn" id="run-btn">Run All Tests</button>
+</div>
+
+<div class="progress-bar"><div class="fill" id="progress-fill"></div></div>
+
+<div id="results"></div>
+
+<script>
+// ============ CORE MATH (duplicated from prototype.html) ============
+
+const VARIANT_DEFS = {
+  'hook-6': {
+    canonical: [[0,0,1],[1,0,1],[1,1,1]],
+    buildUp: [
+      [[0,0,1],[0,0,0],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,1]],
+      [[0,0,1],[0,0,1],[1,1,1]],
+      [[0,0,1],[1,0,1],[1,1,1]],
+    ]
+  },
+  'stair-6': {
+    canonical: [[0,0,1],[0,1,1],[1,1,1]],
+    buildUp: [
+      [[0,0,1],[0,0,0],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,0]],
+      [[0,0,1],[0,1,1],[0,0,0]],
+      [[0,0,1],[0,1,1],[0,0,1]],
+      [[0,0,1],[0,1,1],[1,1,1]],
+    ]
+  },
+  'L-5': {
+    canonical: [[0,0,1],[0,0,1],[1,1,1]],
+    buildUp: [
+      [[0,0,1],[0,0,0],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,1]],
+      [[0,0,1],[0,0,1],[0,1,1]],
+      [[0,0,1],[0,0,1],[1,1,1]],
+    ]
+  },
+  'right-5': {
+    canonical: [[0,0,1],[0,1,1],[0,1,1]],
+    buildUp: [
+      [[0,0,1],[0,0,0],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,1]],
+      [[0,0,1],[0,0,1],[0,1,1]],
+      [[0,0,1],[0,1,1],[0,1,1]],
+    ]
+  },
+  'heavy-7': {
+    canonical: [[0,0,1],[1,1,1],[1,1,1]],
+    buildUp: [
+      [[0,0,1],[0,0,0],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,1]],
+      [[0,0,1],[0,1,1],[0,1,1]],
+      [[0,0,1],[1,1,1],[1,1,1]],
+    ]
+  },
+  'loop-8': {
+    canonical: [[1,1,1],[1,0,1],[1,1,1]],
+    buildUp: [
+      [[0,0,1],[0,0,0],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,0]],
+      [[0,0,1],[0,0,1],[1,1,1]],
+      [[0,0,1],[1,0,1],[1,1,1]],
+      [[1,1,1],[1,0,1],[1,1,1]],
+    ]
+  },
+  'full-9': {
+    canonical: [[1,1,1],[1,1,1],[1,1,1]],
+    buildUp: [
+      [[0,0,1],[0,0,0],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,0]],
+      [[0,0,1],[0,0,1],[1,1,1]],
+      [[0,0,1],[1,0,1],[1,1,1]],
+      [[1,1,1],[1,1,1],[1,1,1]],
+    ]
+  },
+};
+
+const SIZING_WEIGHTS = {
+  'uniform': [[1,1,1],[1,1,1],[1,1,1]],
+  'wave':    [[1.3,1.3,1.3],[1,1,1],[0.7,0.7,0.7]],
+  'corner':  [[1.25,0.85,1.25],[0.85,1.1,0.85],[1.25,0.85,1.25]],
+  'trail':   [[0.40,0.30,1.30],[0.55,0.30,1.15],[0.70,0.85,1.00]],
+};
+
+const COLOR_SCHEMES = {
+  'dark/light': { bg: '#1c1c1e', dot: '#f0efe8' },
+  'light/dark': { bg: '#f0efe8', dot: '#1c1c1e' },
+  'dark/amber': { bg: '#1c1c1e', dot: '#e8a435' },
+};
+
+const EXPORT_SIZES = {
+  favicon:   [16, 32, 48, 64, 96, 128, 256],
+  web:       [180, 192, 512, 1200],
+  macos:     [16, 32, 64, 128, 256, 512, 1024],
+  windows:   [16, 24, 32, 48, 64, 128, 256],
+  linux:     [16, 22, 24, 32, 48, 64, 96, 128, 256, 512],
+  marketing: [1024, 2048, 4096],
+};
+
+const EXPORT_NAMES = {
+  favicon:   (s) => `favicon-${s}.png`,
+  web:       (s) => {
+    if (s === 180) return 'apple-touch-icon-180.png';
+    if (s === 192) return 'pwa-192.png';
+    if (s === 512) return 'pwa-512.png';
+    if (s === 1200) return 'og-1200.png';
+    return `web-${s}.png`;
+  },
+  macos:     (s) => `icon-${s}.png`,
+  windows:   (s) => `icon-${s}.png`,
+  linux:     (s) => `icon-${s}.png`,
+  marketing: (s) => `logo-${s}.png`,
+};
+
+const BASE_DOT_RATIO = 0.6;
+
+function rotate90(m) {
+  const r = [[0,0,0],[0,0,0],[0,0,0]];
+  for (let i = 0; i < 3; i++)
+    for (let j = 0; j < 3; j++)
+      r[i][j] = m[2-j][i];
+  return r;
+}
+
+function rotateWeights(w) {
+  const r = [[0,0,0],[0,0,0],[0,0,0]];
+  for (let i = 0; i < 3; i++)
+    for (let j = 0; j < 3; j++)
+      r[i][j] = w[2-j][i];
+  return r;
+}
+
+function matricesEqual(a, b) {
+  for (let i = 0; i < 3; i++)
+    for (let j = 0; j < 3; j++)
+      if (a[i][j] !== b[i][j]) return false;
+  return true;
+}
+
+function matrixToString(m) {
+  return '[' + m.map(r => '[' + r.join(',') + ']').join(',') + ']';
+}
+
+function countDots(m) {
+  let n = 0;
+  for (let r = 0; r < 3; r++)
+    for (let c = 0; c < 3; c++)
+      if (m[r][c]) n++;
+  return n;
+}
+
+function buildRotationMatrices(variant, n) {
+  const canonical = VARIANT_DEFS[variant].canonical;
+  const r1 = rotate90(canonical);
+  const r2 = rotate90(r1);
+  const r3 = rotate90(r2);
+  const cycle = [canonical, r1, r2, r3];
+  const result = [];
+  for (let i = 0; i < n; i++) result.push(cycle[i % 4]);
+  return result;
+}
+
+function luminance(hex) {
+  const r = parseInt(hex.slice(1,3), 16) / 255;
+  const g = parseInt(hex.slice(3,5), 16) / 255;
+  const b = parseInt(hex.slice(5,7), 16) / 255;
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
+function getExportVariations(edBgColor, edDotColor) {
+  const dotLum = luminance(edDotColor);
+  const onWhiteDot = dotLum < 0.6 ? edDotColor : '#1c1c1e';
+  const onBlackDot = dotLum > 0.4 ? edDotColor : '#f0efe8';
+  return {
+    'original':       { bg: edBgColor, dot: edDotColor, transparent: false },
+    'transparent':    { bg: null,      dot: edDotColor, transparent: true },
+    'on-white':       { bg: '#ffffff', dot: onWhiteDot, transparent: false },
+    'on-black':       { bg: '#000000', dot: onBlackDot, transparent: false },
+    'mono-on-white':  { bg: '#ffffff', dot: '#1c1c1e',  transparent: false },
+    'mono-on-black':  { bg: '#000000', dot: '#f0efe8',  transparent: false },
+  };
+}
+
+function renderExportCanvas(size, bgColor, dotColor, shape, matrix, weights, dotRatio, transparent) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cellSize = size / 3;
+  const baseDotR = (cellSize * dotRatio) / 2;
+  const tileRadius = size * 0.12;
+
+  if (!transparent) {
+    ctx.beginPath();
+    ctx.roundRect(0, 0, size, size, tileRadius);
+    ctx.fillStyle = bgColor;
+    ctx.fill();
+  }
+
+  ctx.fillStyle = dotColor;
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      if (!matrix[r][c]) continue;
+      const scale = weights[r][c];
+      const dr = baseDotR * scale;
+      const cx = cellSize * c + cellSize / 2;
+      const cy = cellSize * r + cellSize / 2;
+      if (shape === 'circle') {
+        ctx.beginPath();
+        ctx.arc(cx, cy, dr, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        const sr = dr * 0.35;
+        const s = dr * 2;
+        ctx.beginPath();
+        ctx.roundRect(cx - dr, cy - dr, s, s, sr);
+        ctx.fill();
+      }
+    }
+  }
+  return canvas;
+}
+
+function generateExportSVG(svgSize, bgColor, dotColor, shape, matrix, weights, dotRatio, transparent) {
+  const size = svgSize || 512;
+  const cellSize = size / 3;
+  const baseDotR = (cellSize * dotRatio) / 2;
+  const tileRadius = size * 0.12;
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">\n`;
+  if (!transparent) {
+    svg += `  <rect width="${size}" height="${size}" rx="${tileRadius.toFixed(2)}" ry="${tileRadius.toFixed(2)}" fill="${bgColor}"/>\n`;
+  }
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      if (!matrix[r][c]) continue;
+      const scale = weights[r][c];
+      const dr = baseDotR * scale;
+      const cx = cellSize * c + cellSize / 2;
+      const cy = cellSize * r + cellSize / 2;
+      if (shape === 'circle') {
+        svg += `  <circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${dr.toFixed(2)}" fill="${dotColor}"/>\n`;
+      } else {
+        const sr = dr * 0.35;
+        const s = dr * 2;
+        svg += `  <rect x="${(cx - dr).toFixed(2)}" y="${(cy - dr).toFixed(2)}" width="${s.toFixed(2)}" height="${s.toFixed(2)}" rx="${sr.toFixed(2)}" ry="${sr.toFixed(2)}" fill="${dotColor}"/>\n`;
+      }
+    }
+  }
+  svg += `</svg>`;
+  return svg;
+}
+
+function canvasToBlob(canvas) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), 'image/png');
+  });
+}
+
+// ============ TEST FRAMEWORK ============
+
+const categories = [];
+let totalTests = 0, passedTests = 0, failedTests = 0;
+
+function createCategory(name) {
+  const cat = { name, tests: [], pass: 0, fail: 0, el: null };
+  categories.push(cat);
+  return cat;
+}
+
+function addTest(cat, name, fn) {
+  cat.tests.push({ name, fn, status: 'pending', detail: '' });
+}
+
+async function runAllTests() {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.textContent = 'Running...';
+
+  totalTests = 0; passedTests = 0; failedTests = 0;
+
+  for (const cat of categories) {
+    cat.pass = 0;
+    cat.fail = 0;
+    for (const t of cat.tests) {
+      t.status = 'pending';
+      t.detail = '';
+    }
+  }
+
+  renderResults();
+  const total = categories.reduce((s, c) => s + c.tests.length, 0);
+  let done = 0;
+
+  for (const cat of categories) {
+    updateCategoryBadge(cat, 'running');
+    for (const t of cat.tests) {
+      try {
+        const detail = await t.fn();
+        t.status = 'pass';
+        t.detail = detail || '';
+        cat.pass++;
+        passedTests++;
+      } catch (e) {
+        t.status = 'fail';
+        t.detail = e.message || String(e);
+        cat.fail++;
+        failedTests++;
+      }
+      totalTests++;
+      done++;
+      document.getElementById('progress-fill').style.width = ((done / total) * 100) + '%';
+      renderTestRow(cat, t);
+      updateCategoryBadge(cat, cat.fail > 0 ? 'fail' : 'pass');
+      updateSummary();
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Run All Tests';
+}
+
+function updateSummary() {
+  document.getElementById('total-count').textContent = totalTests;
+  document.getElementById('pass-count').textContent = passedTests;
+  document.getElementById('fail-count').textContent = failedTests;
+}
+
+function renderResults() {
+  const container = document.getElementById('results');
+  container.innerHTML = '';
+  for (const cat of categories) {
+    const div = document.createElement('div');
+    div.className = 'category';
+    cat.el = div;
+
+    const header = document.createElement('div');
+    header.className = 'category-header';
+    header.innerHTML = `
+      <span class="chevron">▶</span>
+      <h2>${cat.name}</h2>
+      <span class="badge pending" data-badge>${cat.tests.length} tests</span>
+    `;
+    header.addEventListener('click', () => div.classList.toggle('expanded'));
+    div.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'category-body';
+    for (const t of cat.tests) {
+      const row = document.createElement('div');
+      row.className = 'test-row';
+      row.dataset.testName = t.name;
+      row.innerHTML = `
+        <span class="test-icon pending">○</span>
+        <span class="test-name">${t.name}</span>
+        <span class="test-detail"></span>
+      `;
+      body.appendChild(row);
+    }
+    div.appendChild(body);
+    container.appendChild(div);
+  }
+}
+
+function renderTestRow(cat, t) {
+  const body = cat.el.querySelector('.category-body');
+  const rows = body.querySelectorAll('.test-row');
+  for (const row of rows) {
+    if (row.dataset.testName === t.name) {
+      const icon = row.querySelector('.test-icon');
+      const detail = row.querySelector('.test-detail');
+      icon.className = 'test-icon ' + t.status;
+      icon.textContent = t.status === 'pass' ? '✓' : '✗';
+      detail.textContent = t.detail;
+      detail.className = 'test-detail' + (t.status === 'fail' ? ' fail-detail' : '');
+      break;
+    }
+  }
+}
+
+function updateCategoryBadge(cat, status) {
+  const badge = cat.el.querySelector('[data-badge]');
+  badge.className = 'badge ' + status;
+  if (status === 'running') {
+    badge.textContent = 'running...';
+  } else {
+    const total = cat.tests.length;
+    badge.textContent = cat.fail > 0
+      ? `${cat.fail} failed / ${total}`
+      : `${cat.pass} passed / ${total}`;
+  }
+  // Auto-expand on failure
+  if (status === 'fail') {
+    cat.el.classList.add('expanded');
+  }
+}
+
+// ============ DEFINE TESTS ============
+
+// --- 1. PNG Dimensions ---
+const catPNG = createCategory('PNG Dimensions');
+
+// Test a representative subset to keep runtime reasonable
+const testSizeSamples = [
+  { platform: 'favicon', size: 16 },
+  { platform: 'favicon', size: 256 },
+  { platform: 'web', size: 180 },
+  { platform: 'web', size: 1200 },
+  { platform: 'macos', size: 1024 },
+  { platform: 'windows', size: 48 },
+  { platform: 'linux', size: 512 },
+  { platform: 'marketing', size: 4096 },
+];
+
+for (const { platform, size } of testSizeSamples) {
+  addTest(catPNG, `${platform}/${size}px canvas dimensions`, async () => {
+    const matrix = VARIANT_DEFS['hook-6'].canonical;
+    const weights = SIZING_WEIGHTS['uniform'];
+    const canvas = renderExportCanvas(size, '#1c1c1e', '#f0efe8', 'circle', matrix, weights, BASE_DOT_RATIO, false);
+    if (canvas.width !== size || canvas.height !== size) {
+      throw new Error(`Expected ${size}×${size}, got ${canvas.width}×${canvas.height}`);
+    }
+    const blob = await canvasToBlob(canvas);
+    if (!blob || blob.size === 0) throw new Error('Blob is empty');
+    if (blob.type !== 'image/png') throw new Error(`Blob type: ${blob.type}`);
+    return `${size}×${size}, blob ${blob.size} bytes`;
+  });
+}
+
+// --- 2. Background Colors ---
+const catBG = createCategory('Background Colors');
+
+function getPixelAt(ctx, x, y) {
+  const d = ctx.getImageData(x, y, 1, 1).data;
+  return { r: d[0], g: d[1], b: d[2], a: d[3] };
+}
+
+function hexToRgb(hex) {
+  return {
+    r: parseInt(hex.slice(1,3), 16),
+    g: parseInt(hex.slice(3,5), 16),
+    b: parseInt(hex.slice(5,7), 16),
+  };
+}
+
+addTest(catBG, 'Transparent PNG has alpha=0 at corners', async () => {
+  const matrix = VARIANT_DEFS['hook-6'].canonical;
+  const weights = SIZING_WEIGHTS['uniform'];
+  const canvas = renderExportCanvas(128, null, '#f0efe8', 'circle', matrix, weights, BASE_DOT_RATIO, true);
+  const ctx = canvas.getContext('2d');
+  // Corner pixels should be fully transparent
+  const tl = getPixelAt(ctx, 0, 0);
+  const br = getPixelAt(ctx, 127, 127);
+  if (tl.a !== 0) throw new Error(`Top-left alpha=${tl.a}, expected 0`);
+  if (br.a !== 0) throw new Error(`Bottom-right alpha=${br.a}, expected 0`);
+  return `corners alpha: TL=${tl.a}, BR=${br.a}`;
+});
+
+addTest(catBG, 'On-white background is #ffffff', async () => {
+  const matrix = VARIANT_DEFS['hook-6'].canonical;
+  const weights = SIZING_WEIGHTS['uniform'];
+  const canvas = renderExportCanvas(128, '#ffffff', '#1c1c1e', 'circle', matrix, weights, BASE_DOT_RATIO, false);
+  const ctx = canvas.getContext('2d');
+  // Sample near center of the tile radius area (but outside dots) — use a corner which is inside the rounded rect
+  // At 128px, tileRadius = 128*0.12 = 15.36. Check pixel at (64, 2) which should be inside the bg rect
+  const p = getPixelAt(ctx, 64, 2);
+  if (p.r !== 255 || p.g !== 255 || p.b !== 255) {
+    throw new Error(`Expected #ffffff at (64,2), got rgb(${p.r},${p.g},${p.b})`);
+  }
+  return `bg pixel: rgb(${p.r},${p.g},${p.b})`;
+});
+
+addTest(catBG, 'On-black background is #000000', async () => {
+  const matrix = VARIANT_DEFS['hook-6'].canonical;
+  const weights = SIZING_WEIGHTS['uniform'];
+  const canvas = renderExportCanvas(128, '#000000', '#f0efe8', 'circle', matrix, weights, BASE_DOT_RATIO, false);
+  const ctx = canvas.getContext('2d');
+  const p = getPixelAt(ctx, 64, 2);
+  if (p.r !== 0 || p.g !== 0 || p.b !== 0) {
+    throw new Error(`Expected #000000 at (64,2), got rgb(${p.r},${p.g},${p.b})`);
+  }
+  return `bg pixel: rgb(${p.r},${p.g},${p.b})`;
+});
+
+addTest(catBG, 'Original background uses configured color', async () => {
+  const matrix = VARIANT_DEFS['hook-6'].canonical;
+  const weights = SIZING_WEIGHTS['uniform'];
+  const bgHex = '#1c1c1e';
+  const expected = hexToRgb(bgHex);
+  const canvas = renderExportCanvas(128, bgHex, '#f0efe8', 'circle', matrix, weights, BASE_DOT_RATIO, false);
+  const ctx = canvas.getContext('2d');
+  const p = getPixelAt(ctx, 64, 2);
+  if (Math.abs(p.r - expected.r) > 1 || Math.abs(p.g - expected.g) > 1 || Math.abs(p.b - expected.b) > 1) {
+    throw new Error(`Expected ~${bgHex}, got rgb(${p.r},${p.g},${p.b})`);
+  }
+  return `bg pixel: rgb(${p.r},${p.g},${p.b})`;
+});
+
+addTest(catBG, 'Mono-on-white uses #1c1c1e dots', async () => {
+  const matrix = [[1,1,1],[1,1,1],[1,1,1]]; // full-9 so dots everywhere
+  const weights = SIZING_WEIGHTS['uniform'];
+  const canvas = renderExportCanvas(128, '#ffffff', '#1c1c1e', 'circle', matrix, weights, 0.9, false);
+  const ctx = canvas.getContext('2d');
+  // Center of cell (1,1) = center of canvas
+  const p = getPixelAt(ctx, 64, 64);
+  const expected = hexToRgb('#1c1c1e');
+  if (Math.abs(p.r - expected.r) > 1 || Math.abs(p.g - expected.g) > 1 || Math.abs(p.b - expected.b) > 1) {
+    throw new Error(`Expected dot ~#1c1c1e, got rgb(${p.r},${p.g},${p.b})`);
+  }
+  return `dot pixel: rgb(${p.r},${p.g},${p.b})`;
+});
+
+addTest(catBG, 'Mono-on-black uses #f0efe8 dots', async () => {
+  const matrix = [[1,1,1],[1,1,1],[1,1,1]];
+  const weights = SIZING_WEIGHTS['uniform'];
+  const canvas = renderExportCanvas(128, '#000000', '#f0efe8', 'circle', matrix, weights, 0.9, false);
+  const ctx = canvas.getContext('2d');
+  const p = getPixelAt(ctx, 64, 64);
+  const expected = hexToRgb('#f0efe8');
+  if (Math.abs(p.r - expected.r) > 1 || Math.abs(p.g - expected.g) > 1 || Math.abs(p.b - expected.b) > 1) {
+    throw new Error(`Expected dot ~#f0efe8, got rgb(${p.r},${p.g},${p.b})`);
+  }
+  return `dot pixel: rgb(${p.r},${p.g},${p.b})`;
+});
+
+// --- 3. SVG Structure ---
+const catSVG = createCategory('SVG Structure');
+
+for (const [variant, def] of Object.entries(VARIANT_DEFS)) {
+  addTest(catSVG, `SVG ${variant}: correct element count (circle)`, () => {
+    const svg = generateExportSVG(512, '#1c1c1e', '#f0efe8', 'circle', def.canonical, SIZING_WEIGHTS['uniform'], BASE_DOT_RATIO, false);
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svg, 'image/svg+xml');
+    const root = doc.documentElement;
+
+    // Check root dimensions
+    if (root.getAttribute('width') !== '512') throw new Error(`width=${root.getAttribute('width')}`);
+    if (root.getAttribute('height') !== '512') throw new Error(`height=${root.getAttribute('height')}`);
+
+    const circles = doc.querySelectorAll('circle');
+    const expected = countDots(def.canonical);
+    if (circles.length !== expected) {
+      throw new Error(`Expected ${expected} circles, got ${circles.length}`);
+    }
+
+    // Verify fill attributes
+    for (const c of circles) {
+      if (c.getAttribute('fill') !== '#f0efe8') {
+        throw new Error(`Circle fill=${c.getAttribute('fill')}`);
+      }
+    }
+
+    // Verify background rect exists
+    const rects = doc.querySelectorAll('rect');
+    if (rects.length < 1) throw new Error('No background rect');
+
+    return `${circles.length} circles, ${rects.length} rects`;
+  });
+}
+
+addTest(catSVG, 'SVG squircle uses <rect> for dots', () => {
+  const svg = generateExportSVG(512, '#1c1c1e', '#f0efe8', 'squircle',
+    VARIANT_DEFS['hook-6'].canonical, SIZING_WEIGHTS['uniform'], BASE_DOT_RATIO, false);
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svg, 'image/svg+xml');
+  const rects = doc.querySelectorAll('rect');
+  const circles = doc.querySelectorAll('circle');
+  // 1 background rect + 6 dot rects = 7 total rects, 0 circles
+  const expectedDots = countDots(VARIANT_DEFS['hook-6'].canonical);
+  if (circles.length !== 0) throw new Error(`Expected 0 circles, got ${circles.length}`);
+  if (rects.length !== expectedDots + 1) throw new Error(`Expected ${expectedDots + 1} rects (1 bg + ${expectedDots} dots), got ${rects.length}`);
+  return `${rects.length} rects (1 bg + ${expectedDots} dots), 0 circles`;
+});
+
+addTest(catSVG, 'SVG transparent has no background rect', () => {
+  const svg = generateExportSVG(512, null, '#f0efe8', 'circle',
+    VARIANT_DEFS['hook-6'].canonical, SIZING_WEIGHTS['uniform'], BASE_DOT_RATIO, true);
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svg, 'image/svg+xml');
+  const rects = doc.querySelectorAll('rect');
+  if (rects.length !== 0) throw new Error(`Expected 0 rects for transparent, got ${rects.length}`);
+  return '0 background rects';
+});
+
+addTest(catSVG, 'SVG viewBox matches width/height', () => {
+  const svg = generateExportSVG(512, '#000', '#fff', 'circle',
+    VARIANT_DEFS['full-9'].canonical, SIZING_WEIGHTS['uniform'], BASE_DOT_RATIO, false);
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svg, 'image/svg+xml');
+  const vb = doc.documentElement.getAttribute('viewBox');
+  if (vb !== '0 0 512 512') throw new Error(`viewBox="${vb}"`);
+  return `viewBox="${vb}"`;
+});
+
+// --- 4. ZIP Structure ---
+const catZIP = createCategory('ZIP Structure');
+
+addTest(catZIP, 'ZIP contains all expected paths', async () => {
+  const matrix = VARIANT_DEFS['hook-6'].canonical;
+  const weights = SIZING_WEIGHTS['uniform'];
+  const variations = getExportVariations('#1c1c1e', '#f0efe8');
+  const variationKeys = Object.keys(variations);
+  const platformKeys = Object.keys(EXPORT_SIZES);
+
+  // Build expected paths
+  const expected = new Set();
+  for (const vk of variationKeys) {
+    for (const pk of platformKeys) {
+      for (const size of EXPORT_SIZES[pk]) {
+        expected.add(`jenner-logo-export/${vk}/${pk}/${EXPORT_NAMES[pk](size)}`);
+      }
+    }
+    expected.add(`jenner-logo-export/svg/logo-${vk}.svg`);
+  }
+
+  // Generate actual ZIP
+  const zip = new JSZip();
+  const root = zip.folder('jenner-logo-export');
+
+  for (const vk of variationKeys) {
+    const v = variations[vk];
+    const varFolder = root.folder(vk);
+    for (const pk of platformKeys) {
+      const platFolder = varFolder.folder(pk);
+      for (const size of EXPORT_SIZES[pk]) {
+        const canvas = renderExportCanvas(size, v.bg, v.dot, 'circle', matrix, weights, BASE_DOT_RATIO, v.transparent);
+        const blob = await canvasToBlob(canvas);
+        platFolder.file(EXPORT_NAMES[pk](size), blob);
+      }
+    }
+  }
+
+  const svgFolder = root.folder('svg');
+  for (const vk of variationKeys) {
+    const v = variations[vk];
+    const svgStr = generateExportSVG(512, v.bg, v.dot, 'circle', matrix, weights, BASE_DOT_RATIO, v.transparent);
+    svgFolder.file(`logo-${vk}.svg`, svgStr);
+  }
+
+  // Check all expected paths exist
+  const actual = new Set();
+  zip.forEach((path) => actual.add(path));
+
+  const missing = [];
+  for (const p of expected) {
+    if (!actual.has(p)) missing.push(p);
+  }
+
+  if (missing.length > 0) {
+    throw new Error(`Missing ${missing.length} paths: ${missing.slice(0, 3).join(', ')}...`);
+  }
+
+  // Check for unexpected extra files (directories end with /)
+  const extraFiles = [];
+  for (const p of actual) {
+    if (!p.endsWith('/') && !expected.has(p)) extraFiles.push(p);
+  }
+
+  const totalExpected = expected.size;
+  const totalActual = [...actual].filter(p => !p.endsWith('/')).length;
+  if (totalActual !== totalExpected) {
+    throw new Error(`Expected ${totalExpected} files, got ${totalActual}. Extra: ${extraFiles.slice(0, 3).join(', ')}`);
+  }
+
+  return `${totalActual} files, 0 missing, ${variationKeys.length} variations × ${platformKeys.length} platforms + SVGs`;
+});
+
+addTest(catZIP, 'ZIP variation count = 6', async () => {
+  const variations = getExportVariations('#1c1c1e', '#f0efe8');
+  const keys = Object.keys(variations);
+  if (keys.length !== 6) throw new Error(`Expected 6 variations, got ${keys.length}: ${keys.join(', ')}`);
+  return keys.join(', ');
+});
+
+addTest(catZIP, 'ZIP platform count = 6', () => {
+  const keys = Object.keys(EXPORT_SIZES);
+  if (keys.length !== 6) throw new Error(`Expected 6 platforms, got ${keys.length}`);
+  return keys.join(', ');
+});
+
+addTest(catZIP, 'Total PNG count per variation', () => {
+  let total = 0;
+  const breakdown = [];
+  for (const [pk, sizes] of Object.entries(EXPORT_SIZES)) {
+    total += sizes.length;
+    breakdown.push(`${pk}:${sizes.length}`);
+  }
+  return `${total} PNGs — ${breakdown.join(', ')}`;
+});
+
+// --- 5. Rotation Math ---
+const catRot = createCategory('Rotation Math');
+
+for (const [variant, def] of Object.entries(VARIANT_DEFS)) {
+  addTest(catRot, `R⁴(${variant}) = identity`, () => {
+    const m = def.canonical;
+    const r1 = rotate90(m);
+    const r2 = rotate90(r1);
+    const r3 = rotate90(r2);
+    const r4 = rotate90(r3);
+    if (!matricesEqual(m, r4)) {
+      throw new Error(`R⁴ ≠ M: ${matrixToString(r4)}`);
+    }
+    return `${matrixToString(m)} → R⁴ = identity ✓`;
+  });
+}
+
+addTest(catRot, 'Rotation preserves dot count for all variants', () => {
+  const results = [];
+  for (const [variant, def] of Object.entries(VARIANT_DEFS)) {
+    const m = def.canonical;
+    const n = countDots(m);
+    for (let i = 1; i <= 3; i++) {
+      const rot = buildRotationMatrices(variant, i + 1)[i];
+      const rn = countDots(rot);
+      if (rn !== n) throw new Error(`${variant}: R${i} has ${rn} dots, expected ${n}`);
+    }
+    results.push(`${variant}:${n}`);
+  }
+  return results.join(', ');
+});
+
+addTest(catRot, 'Weight rotation R⁴(W) = W for all sizing modes', () => {
+  const results = [];
+  for (const [name, w] of Object.entries(SIZING_WEIGHTS)) {
+    const w1 = rotateWeights(w);
+    const w2 = rotateWeights(w1);
+    const w3 = rotateWeights(w2);
+    const w4 = rotateWeights(w3);
+    for (let i = 0; i < 3; i++)
+      for (let j = 0; j < 3; j++)
+        if (Math.abs(w[i][j] - w4[i][j]) > 1e-10)
+          throw new Error(`${name}[${i}][${j}]: ${w[i][j]} ≠ ${w4[i][j]}`);
+    results.push(name);
+  }
+  return `All cyclic: ${results.join(', ')}`;
+});
+
+// Known expected rotations for hook-6
+addTest(catRot, 'hook-6 rotation sequence matches known values', () => {
+  const expected = [
+    [[0,0,1],[1,0,1],[1,1,1]],  // R⁰ = canonical
+    [[1,1,0],[1,0,0],[1,1,1]],  // R¹
+    [[1,1,1],[1,0,1],[1,0,0]],  // R²
+    [[1,1,1],[0,0,1],[0,1,1]],  // R³
+  ];
+  const actual = buildRotationMatrices('hook-6', 4);
+  for (let k = 0; k < 4; k++) {
+    if (!matricesEqual(expected[k], actual[k])) {
+      throw new Error(`R${k}: expected ${matrixToString(expected[k])}, got ${matrixToString(actual[k])}`);
+    }
+  }
+  return 'R⁰..R³ all match expected matrices';
+});
+
+// Verify R(M)_{i,j} = M_{2-j, i} formula
+addTest(catRot, 'Rotation formula R(M)_{i,j} = M_{2-j, i}', () => {
+  for (const [variant, def] of Object.entries(VARIANT_DEFS)) {
+    const m = def.canonical;
+    const r = rotate90(m);
+    for (let i = 0; i < 3; i++)
+      for (let j = 0; j < 3; j++)
+        if (r[i][j] !== m[2-j][i])
+          throw new Error(`${variant}: R[${i}][${j}]=${r[i][j]}, M[${2-j}][${i}]=${m[2-j][i]}`);
+  }
+  return 'Formula verified for all 7 variants';
+});
+
+// Full-9 is rotation-invariant
+addTest(catRot, 'full-9 is rotation-invariant (R(M) = M)', () => {
+  const m = VARIANT_DEFS['full-9'].canonical;
+  const r = rotate90(m);
+  if (!matricesEqual(m, r)) throw new Error(`R(full-9) ≠ full-9`);
+  return 'All 9 cells filled → invariant under rotation';
+});
+
+// loop-8 center stays empty under rotation
+addTest(catRot, 'loop-8 center stays empty under all rotations', () => {
+  const m = VARIANT_DEFS['loop-8'].canonical;
+  for (let k = 0; k < 4; k++) {
+    const rot = buildRotationMatrices('loop-8', k + 1)[k];
+    if (rot[1][1] !== 0) throw new Error(`R${k}[1][1] = ${rot[1][1]}, expected 0`);
+  }
+  return 'center = 0 for R⁰..R³';
+});
+
+// Smoothstep formula verification
+addTest(catRot, 'Smoothstep s(t) = t²(3-2t) boundary values', () => {
+  function smoothstep(t) { return t * t * (3 - 2 * t); }
+  const s0 = smoothstep(0);
+  const s1 = smoothstep(1);
+  const s05 = smoothstep(0.5);
+  if (Math.abs(s0) > 1e-10) throw new Error(`s(0) = ${s0}`);
+  if (Math.abs(s1 - 1) > 1e-10) throw new Error(`s(1) = ${s1}`);
+  if (Math.abs(s05 - 0.5) > 1e-10) throw new Error(`s(0.5) = ${s05}`);
+  // Check monotonicity
+  let prev = 0;
+  for (let t = 0.01; t <= 1; t += 0.01) {
+    const v = smoothstep(t);
+    if (v < prev - 1e-10) throw new Error(`Non-monotonic at t=${t}`);
+    prev = v;
+  }
+  return `s(0)=0, s(0.5)=0.5, s(1)=1, monotonic ✓`;
+});
+
+// Build-up sequences all start from single dot at (0,2)
+addTest(catRot, 'All build-up sequences start with dot at (0,2)', () => {
+  for (const [variant, def] of Object.entries(VARIANT_DEFS)) {
+    const first = def.buildUp[0];
+    if (first[0][2] !== 1) throw new Error(`${variant} first frame missing (0,2)`);
+    if (countDots(first) !== 1) throw new Error(`${variant} first frame has ${countDots(first)} dots, expected 1`);
+  }
+  return 'All 7 variants start with single dot at (0,2)';
+});
+
+// Build-up sequences end at canonical
+addTest(catRot, 'All build-up sequences end at canonical matrix', () => {
+  for (const [variant, def] of Object.entries(VARIANT_DEFS)) {
+    const last = def.buildUp[def.buildUp.length - 1];
+    if (!matricesEqual(last, def.canonical)) {
+      throw new Error(`${variant}: last build-up ≠ canonical`);
+    }
+  }
+  return 'All 7 variants: last build-up frame = canonical';
+});
+
+// ============ INIT ============
+
+document.getElementById('run-btn').addEventListener('click', runAllTests);
+
+// Render initial state
+renderResults();
+updateSummary();
+</script>
+</body>
+</html>
