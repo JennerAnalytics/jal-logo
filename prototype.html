@@ -1,0 +1,2061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jenner Logo Prototype Explorer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', system-ui, sans-serif;
+    background: #1a1a1a;
+    color: #e0e0e0;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    letter-spacing: -0.3px;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 24px;
+  }
+  .controls {
+    background: #222;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-start;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .control-group label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #777;
+    font-weight: 600;
+  }
+  .toggle-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .toggle-btn {
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: transparent;
+    color: #bbb;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .toggle-btn.active {
+    background: #3a3a3a;
+    color: #fff;
+    border-color: #666;
+  }
+  .toggle-btn:hover { border-color: #888; }
+  .speed-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .speed-control input[type="range"] {
+    width: 100px;
+    accent-color: #888;
+  }
+  .speed-val {
+    font-size: 12px;
+    color: #aaa;
+    min-width: 32px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .grid.favicon-mode {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+  .card {
+    background: #222;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: outline 0.15s, transform 0.15s;
+    outline: 2px solid transparent;
+  }
+  .card:hover {
+    outline-color: #444;
+    transform: translateY(-1px);
+  }
+  .card.paused { outline-color: #665522; }
+  .card canvas {
+    border-radius: 8px;
+    image-rendering: auto;
+  }
+  .card-id {
+    font-size: 13px;
+    font-weight: 700;
+    color: #555;
+    font-family: 'SF Mono', 'Menlo', monospace;
+    letter-spacing: 0.5px;
+  }
+  .card-label {
+    font-size: 10px;
+    color: #777;
+    text-align: center;
+    line-height: 1.5;
+    letter-spacing: 0.3px;
+  }
+  .card-label span {
+    display: inline-block;
+    background: #2a2a2a;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin: 1px;
+  }
+
+  /* ---- Editor / Detail view ---- */
+  #detail {
+    display: none;
+  }
+  #detail.active {
+    display: block;
+  }
+  .editor-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .editor-header h2 {
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .editor-back-btn, .editor-copy-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #2a2a2a;
+    color: #ccc;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .editor-back-btn:hover, .editor-copy-btn:hover {
+    border-color: #888;
+    color: #fff;
+  }
+  .editor-copy-btn {
+    background: #3a5a3a;
+    border-color: #5a8a5a;
+  }
+  .editor-copy-btn:hover {
+    background: #4a6a4a;
+  }
+  .editor-layout {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .editor-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  #editor-canvas {
+    border-radius: 12px;
+  }
+  .editor-playback {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .editor-playback button {
+    padding: 4px 12px;
+    border-radius: 5px;
+    border: 1px solid #444;
+    background: #2a2a2a;
+    color: #ccc;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .editor-playback button:hover { border-color: #888; }
+  .editor-playback button.active { background: #3a3a3a; border-color: #666; color: #fff; }
+  .editor-controls {
+    flex: 1;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .editor-section {
+    background: #222;
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .editor-section h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #777;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .weight-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .weight-grid input {
+    width: 100%;
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid #444;
+    background: #1a1a1a;
+    color: #ddd;
+    font-size: 13px;
+    font-family: 'SF Mono', Menlo, monospace;
+    text-align: center;
+  }
+  .weight-grid input:focus {
+    outline: none;
+    border-color: #888;
+  }
+  .editor-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .editor-row label {
+    font-size: 12px;
+    color: #aaa;
+    min-width: 90px;
+  }
+  .editor-row input[type="range"] {
+    flex: 1;
+    accent-color: #888;
+  }
+  .editor-row .val {
+    font-size: 12px;
+    color: #aaa;
+    min-width: 40px;
+    text-align: right;
+    font-family: 'SF Mono', Menlo, monospace;
+  }
+  .editor-row input[type="color"] {
+    width: 36px;
+    height: 28px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    background: none;
+    cursor: pointer;
+    padding: 0;
+  }
+  .editor-row input[type="text"].hex-input {
+    width: 80px;
+    padding: 4px 8px;
+    border-radius: 5px;
+    border: 1px solid #444;
+    background: #1a1a1a;
+    color: #ddd;
+    font-size: 12px;
+    font-family: 'SF Mono', Menlo, monospace;
+  }
+  .color-presets {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .color-preset-btn {
+    padding: 4px 10px;
+    border-radius: 5px;
+    border: 1px solid #444;
+    background: transparent;
+    color: #bbb;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .color-preset-btn.active {
+    background: #3a3a3a;
+    border-color: #666;
+    color: #fff;
+  }
+  .color-preset-btn:hover { border-color: #888; }
+  .grid-divider {
+    grid-column: 1 / -1;
+    border-top: 1px solid #333;
+    padding-top: 12px;
+    margin-top: 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #666;
+    font-weight: 600;
+  }
+  .card.custom-card {
+    outline-color: #443300;
+  }
+  .card.custom-card:hover {
+    outline-color: #665500;
+  }
+  .config-output {
+    width: 100%;
+    min-height: 200px;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #1a1a1a;
+    color: #ccc;
+    font-size: 11px;
+    font-family: 'SF Mono', Menlo, monospace;
+    resize: vertical;
+    margin-top: 8px;
+  }
+  .export-btn {
+    width: 100%;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid #5a8a5a;
+    background: #3a5a3a;
+    color: #ddd;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+    margin-top: 8px;
+  }
+  .export-btn:hover { background: #4a6a4a; color: #fff; }
+  .export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  #export-progress {
+    margin-top: 10px;
+  }
+  #export-progress progress {
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    appearance: none;
+    -webkit-appearance: none;
+    overflow: hidden;
+  }
+  #export-progress progress::-webkit-progress-bar {
+    background: #1a1a1a;
+    border-radius: 4px;
+  }
+  #export-progress progress::-webkit-progress-value {
+    background: #5a8a5a;
+    border-radius: 4px;
+  }
+  #export-status {
+    display: block;
+    font-size: 11px;
+    color: #888;
+    margin-top: 4px;
+  }
+  .period-selector {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .period-btn {
+    padding: 4px 10px;
+    border-radius: 5px;
+    border: 1px solid #444;
+    background: transparent;
+    color: #888;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: 'SF Mono', Menlo, monospace;
+    transition: all 0.15s;
+    min-width: 28px;
+    text-align: center;
+  }
+  .period-btn.active {
+    background: #3a3a3a;
+    border-color: #666;
+    color: #fff;
+  }
+  .period-btn.current-frame {
+    border-color: #5a8a5a;
+    box-shadow: 0 0 4px rgba(90, 138, 90, 0.4);
+  }
+  .period-btn:hover { border-color: #888; }
+  .export-frame-select {
+    width: 100%;
+    padding: 5px 8px;
+    border-radius: 5px;
+    border: 1px solid #444;
+    background: #1a1a1a;
+    color: #ddd;
+    font-size: 12px;
+    font-family: inherit;
+  }
+</style>
+</head>
+<body>
+
+<h1>Jenner Logo Prototype Explorer</h1>
+<p class="subtitle">Click to pause/resume. Double-click to open editor. Use filters to narrow down variations.</p>
+
+<div class="controls">
+  <div class="control-group">
+    <label>J Variant</label>
+    <div class="toggle-row" id="filter-variant"></div>
+  </div>
+  <div class="control-group">
+    <label>Dot Shape</label>
+    <div class="toggle-row" id="filter-shape"></div>
+  </div>
+  <div class="control-group">
+    <label>Color Scheme</label>
+    <div class="toggle-row" id="filter-color"></div>
+  </div>
+  <div class="control-group">
+    <label>Sizing</label>
+    <div class="toggle-row" id="filter-sizing"></div>
+  </div>
+  <div class="control-group">
+    <label>Speed</label>
+    <div class="speed-control">
+      <input type="range" id="speed" min="0.1" max="3" step="0.1" value="1">
+      <span class="speed-val" id="speed-val">1×</span>
+    </div>
+  </div>
+  <div class="control-group">
+    <label>Rotation</label>
+    <div class="toggle-row">
+      <button class="toggle-btn active" id="smooth-toggle">Smooth</button>
+    </div>
+  </div>
+  <div class="control-group">
+    <label>Preview</label>
+    <div class="toggle-row">
+      <button class="toggle-btn" id="favicon-toggle">Favicon size</button>
+    </div>
+  </div>
+  <div class="control-group" style="flex-basis:100%;">
+    <label>Current filters (click to copy)</label>
+    <div id="filter-summary" style="font-family:'SF Mono',Menlo,monospace; font-size:11px; color:#aaa; background:#2a2a2a; padding:6px 10px; border-radius:6px; cursor:pointer; user-select:all; white-space:nowrap; overflow-x:auto;"></div>
+  </div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div id="detail">
+  <div class="editor-header">
+    <button class="editor-back-btn" id="editor-back">← Back to grid</button>
+    <h2 id="editor-title">Editing #01</h2>
+    <button class="editor-copy-btn" id="editor-copy">Copy config</button>
+  </div>
+  <div class="editor-layout">
+    <div class="editor-preview">
+      <canvas id="editor-canvas" width="300" height="300"></canvas>
+      <div class="editor-playback">
+        <button id="ep-play" class="active">▶ Play</button>
+        <button id="ep-pause">⏸ Pause</button>
+        <button id="ep-step">⏭ Step</button>
+        <div class="speed-control" style="margin-left:8px;">
+          <input type="range" id="editor-speed" min="0.1" max="3" step="0.1" value="1">
+          <span class="speed-val" id="editor-speed-val">1×</span>
+        </div>
+      </div>
+    </div>
+    <div class="editor-controls">
+      <div class="editor-section">
+        <h3>Playback Mode</h3>
+        <div class="editor-row">
+          <label>Skip build-up</label>
+          <button class="toggle-btn" id="editor-skip-build">Off</button>
+        </div>
+      </div>
+      <div class="editor-section">
+        <h3>Weight Matrix (3×3 dot sizes)</h3>
+        <div class="editor-row" style="margin-bottom:6px;">
+          <label>Period</label>
+        </div>
+        <div class="period-selector" id="editor-period-selector"></div>
+        <div class="weight-grid" id="editor-weights"></div>
+      </div>
+      <div class="editor-section">
+        <h3>Dot Shape</h3>
+        <div class="toggle-row" id="editor-shape-row">
+          <button class="toggle-btn" data-shape="circle">Circle</button>
+          <button class="toggle-btn" data-shape="squircle">Squircle</button>
+        </div>
+      </div>
+      <div class="editor-section">
+        <h3>Color Scheme</h3>
+        <div class="color-presets" id="editor-color-presets"></div>
+        <div class="editor-row">
+          <label>Background</label>
+          <input type="color" id="editor-bg-picker">
+          <input type="text" class="hex-input" id="editor-bg-hex">
+        </div>
+        <div class="editor-row">
+          <label>Dot color</label>
+          <input type="color" id="editor-dot-picker">
+          <input type="text" class="hex-input" id="editor-dot-hex">
+        </div>
+      </div>
+      <div class="editor-section">
+        <h3>Base Dot Size Ratio</h3>
+        <div class="editor-row">
+          <label>Size</label>
+          <input type="range" id="editor-dot-ratio" min="0.2" max="0.95" step="0.05" value="0.6">
+          <span class="val" id="editor-dot-ratio-val">0.60</span>
+        </div>
+      </div>
+      <div class="editor-section">
+        <h3>Animation Timing</h3>
+        <div id="editor-timings"></div>
+      </div>
+      <div class="editor-section">
+        <h3>Exported Config</h3>
+        <textarea class="config-output" id="editor-config-output" readonly></textarea>
+      </div>
+      <div class="editor-section">
+        <h3>Export Asset Pack</h3>
+        <div class="editor-row">
+          <label>Frame</label>
+          <select id="export-frame" class="export-frame-select">
+            <option value="canonical" selected>Canonical (J visible)</option>
+            <option value="current">Current frame</option>
+          </select>
+        </div>
+        <button class="export-btn" id="export-btn">Download Asset Pack (.zip)</button>
+        <div id="export-progress" style="display:none">
+          <progress id="export-bar" max="100" value="0"></progress>
+          <span id="export-status">Generating...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ DATA ============
+
+// J variants
+const VARIANT_DEFS = {
+  // User's new pattern — open-center J, 6 dots, rotates smoothly
+  'hook-6': {
+    canonical: [[0,0,1],[1,0,1],[1,1,1]],
+    buildUp: [
+      [[0,0,1],[0,0,0],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,1]],
+      [[0,0,1],[0,0,1],[1,1,1]],
+      [[0,0,1],[1,0,1],[1,1,1]],
+    ]
+  },
+  // Staircase J — 6 dots, diagonal flow
+  'stair-6': {
+    canonical: [[0,0,1],[0,1,1],[1,1,1]],
+    buildUp: [
+      [[0,0,1],[0,0,0],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,0]],
+      [[0,0,1],[0,1,1],[0,0,0]],
+      [[0,0,1],[0,1,1],[0,0,1]],
+      [[0,0,1],[0,1,1],[1,1,1]],
+    ]
+  },
+  // L-shape — 5 dots, clean right-angle
+  'L-5': {
+    canonical: [[0,0,1],[0,0,1],[1,1,1]],
+    buildUp: [
+      [[0,0,1],[0,0,0],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,1]],
+      [[0,0,1],[0,0,1],[0,1,1]],
+      [[0,0,1],[0,0,1],[1,1,1]],
+    ]
+  },
+  // Original right-column J from spec — 5 dots
+  'right-5': {
+    canonical: [[0,0,1],[0,1,1],[0,1,1]],
+    buildUp: [
+      [[0,0,1],[0,0,0],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,1]],
+      [[0,0,1],[0,0,1],[0,1,1]],
+      [[0,0,1],[0,1,1],[0,1,1]],
+    ]
+  },
+  // Heavy J — 7 dots, filled bottom
+  'heavy-7': {
+    canonical: [[0,0,1],[1,1,1],[1,1,1]],
+    buildUp: [
+      [[0,0,1],[0,0,0],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,0]],
+      [[0,0,1],[0,0,1],[0,0,1]],
+      [[0,0,1],[0,1,1],[0,1,1]],
+      [[0,0,1],[1,1,1],[1,1,1]],
+    ]
+  },
+  // Loop-8 — all 8 edge dots, center empty
+  // The J reads via dot SIZE (trail sizing), not presence/absence
+  'loop-8': {
+    canonical: [[1,1,1],[1,0,1],[1,1,1]],
+    buildUp: [
+      [[0,0,1],[0,0,0],[0,0,0]],          // stem top
+      [[0,0,1],[0,0,1],[0,0,0]],          // stem grows
+      [[0,0,1],[0,0,1],[1,1,1]],          // stem + base
+      [[0,0,1],[1,0,1],[1,1,1]],          // full J (hook-6)
+      [[1,1,1],[1,0,1],[1,1,1]],          // trail dots complete the loop
+    ]
+  },
+  // Full-9 — all 9 cells filled, J reads entirely through dot size
+  'full-9': {
+    canonical: [[1,1,1],[1,1,1],[1,1,1]],
+    buildUp: [
+      [[0,0,1],[0,0,0],[0,0,0]],          // stem top
+      [[0,0,1],[0,0,1],[0,0,0]],          // stem grows
+      [[0,0,1],[0,0,1],[1,1,1]],          // stem + base
+      [[0,0,1],[1,0,1],[1,1,1]],          // J shape visible
+      [[1,1,1],[1,1,1],[1,1,1]],          // all dots fill in
+    ]
+  },
+};
+
+function buildUpFrames(variant) {
+  return VARIANT_DEFS[variant].buildUp;
+}
+
+// 90° clockwise rotation of 3x3 matrix
+function rotate90(m) {
+  const r = [[0,0,0],[0,0,0],[0,0,0]];
+  for (let i = 0; i < 3; i++)
+    for (let j = 0; j < 3; j++)
+      r[i][j] = m[2-j][i];
+  return r;
+}
+
+// Build rotation frame matrices for N periods (cycling through 4 orientations)
+function buildRotationMatrices(variant, n) {
+  const canonical = VARIANT_DEFS[variant].canonical;
+  const r1 = rotate90(canonical);
+  const r2 = rotate90(r1);
+  const r3 = rotate90(r2);
+  const cycle = [canonical, r1, r2, r3];
+  const result = [];
+  for (let i = 0; i < n; i++) result.push(cycle[i % 4]);
+  return result;
+}
+
+// Build full frame sequence: build-up + rotation loop
+// opts: { skipBuild: bool, rotationPeriods: number, customRotWeights: array }
+function buildFrameSequence(variant, sizingMode, opts) {
+  opts = opts || {};
+  const skipBuild = opts.skipBuild || false;
+  const rotPeriods = opts.rotationPeriods || 4;
+
+  const rotMatrices = buildRotationMatrices(variant, rotPeriods);
+
+  // Build rotation weight frames
+  const baseW = SIZING_WEIGHTS[sizingMode];
+  let rotWeights;
+  if (opts.customRotWeights) {
+    rotWeights = opts.customRotWeights;
+  } else if (sizingMode === 'wave' || sizingMode === 'trail') {
+    const wr1 = rotateWeights(baseW);
+    const wr2 = rotateWeights(wr1);
+    const wr3 = rotateWeights(wr2);
+    const wCycle = [baseW, wr1, wr2, wr3];
+    rotWeights = [];
+    for (let i = 0; i < rotPeriods; i++) rotWeights.push(wCycle[i % 4]);
+  } else {
+    rotWeights = Array(rotPeriods).fill(baseW);
+  }
+
+  if (skipBuild) {
+    return {
+      frames: rotMatrices,
+      weights: rotWeights,
+      timings: Array(rotPeriods).fill(140),
+      loopStart: 1,
+    };
+  }
+
+  const buildFrames = buildUpFrames(variant);
+  const buildTimings = [120, 120, 120, 140, 180];
+  const buildWeights = Array(buildFrames.length).fill(rotWeights[0]);
+
+  return {
+    frames: [...buildFrames, ...rotMatrices.slice(1)],
+    weights: [...buildWeights, ...rotWeights.slice(1)],
+    timings: [...buildTimings, ...Array(rotPeriods - 1).fill(140)],
+    loopStart: buildFrames.length,
+  };
+}
+
+// Color schemes
+const COLOR_SCHEMES = {
+  'dark/light': { bg: '#1c1c1e', dot: '#f0efe8' },
+  'light/dark': { bg: '#f0efe8', dot: '#1c1c1e' },
+  'dark/amber': { bg: '#1c1c1e', dot: '#e8a435' },
+};
+
+// Base dot size ratio (dot diameter / cell size)
+const BASE_DOT_RATIO = 0.6;
+
+// Sizing modes: weight matrices that control per-dot scale
+// "wave" rotates with the pattern; "corner" is rotation-invariant
+const SIZING_WEIGHTS = {
+  // All dots same size
+  'uniform': [
+    [1.0, 1.0, 1.0],
+    [1.0, 1.0, 1.0],
+    [1.0, 1.0, 1.0],
+  ],
+  // Directional emphasis — top row large, bottom small
+  // Rotates with the pattern, creating a "leading edge" wave effect
+  'wave': [
+    [1.3, 1.3, 1.3],
+    [1.0, 1.0, 1.0],
+    [0.7, 0.7, 0.7],
+  ],
+  // Corners pop, edges recede — structural hierarchy (rotation-invariant)
+  'corner': [
+    [1.25, 0.85, 1.25],
+    [0.85, 1.1,  0.85],
+    [1.25, 0.85, 1.25],
+  ],
+  // Trail — J stem is large, trailing dots shrink around the perimeter
+  // Perimeter CW from (0,2): stem top → hook end → trail dots
+  // Rotates with the pattern so the gradient follows the spin
+  // Center is small (background texture, not part of J)
+  'trail': [
+    [0.40, 0.30, 1.30],
+    [0.55, 0.30, 1.15],
+    [0.70, 0.85, 1.00],
+  ],
+};
+
+// Rotate a weight matrix 90° CW (same transform as dot matrix)
+function rotateWeights(w) {
+  const r = [[0,0,0],[0,0,0],[0,0,0]];
+  for (let i = 0; i < 3; i++)
+    for (let j = 0; j < 3; j++)
+      r[i][j] = w[2-j][i];
+  return r;
+}
+
+// ============ RENDERING ============
+
+function drawFrame(ctx, matrix, size, dotShape, colorScheme, weights, opts) {
+  const colors = (opts && opts.colors) || COLOR_SCHEMES[colorScheme];
+  const { bg, dot } = colors;
+  const dotRatio = (opts && opts.baseDotRatio) || BASE_DOT_RATIO;
+  const cellSize = size / 3;
+  const baseDotR = (cellSize * dotRatio) / 2;
+  const squircleRadius = baseDotR * 0.35;
+
+  // Background
+  ctx.clearRect(0, 0, size, size);
+  const tileRadius = size * 0.12;
+  ctx.beginPath();
+  ctx.roundRect(0, 0, size, size, tileRadius);
+  ctx.fillStyle = bg;
+  ctx.fill();
+
+  // Dots
+  ctx.fillStyle = dot;
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      if (!matrix[r][c]) continue;
+      const scale = weights[r][c];
+      const dotR = baseDotR * scale;
+      const cx = cellSize * c + cellSize / 2;
+      const cy = cellSize * r + cellSize / 2;
+      if (dotShape === 'circle') {
+        ctx.beginPath();
+        ctx.arc(cx, cy, dotR, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // squircle (rounded rect)
+        const sr = dotR * 0.35;
+        const s = dotR * 2;
+        ctx.beginPath();
+        ctx.roundRect(cx - dotR, cy - dotR, s, s, sr);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+// Interpolated draw: cross-fades between two frames for smooth rotation
+function drawFrameInterp(ctx, matA, matB, size, dotShape, colorScheme, weightsA, weightsB, t, opts) {
+  const colors = (opts && opts.colors) || COLOR_SCHEMES[colorScheme];
+  const { bg, dot } = colors;
+  const dotRatio = (opts && opts.baseDotRatio) || BASE_DOT_RATIO;
+  const cellSize = size / 3;
+  const baseDotR = (cellSize * dotRatio) / 2;
+
+  // Smoothstep easing for more natural motion
+  const st = t * t * (3 - 2 * t);
+
+  ctx.clearRect(0, 0, size, size);
+  const tileRadius = size * 0.12;
+  ctx.beginPath();
+  ctx.roundRect(0, 0, size, size, tileRadius);
+  ctx.fillStyle = bg;
+  ctx.fill();
+
+  ctx.fillStyle = dot;
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const inA = matA[r][c];
+      const inB = matB[r][c];
+      if (!inA && !inB) continue;
+
+      let scale;
+      if (inA && inB) {
+        scale = weightsA[r][c] * (1 - st) + weightsB[r][c] * st;
+      } else if (inA) {
+        scale = weightsA[r][c] * (1 - st);
+      } else {
+        scale = weightsB[r][c] * st;
+      }
+      if (scale < 0.01) continue;
+
+      const dotR = baseDotR * scale;
+      const cx = cellSize * c + cellSize / 2;
+      const cy = cellSize * r + cellSize / 2;
+      if (dotShape === 'circle') {
+        ctx.beginPath();
+        ctx.arc(cx, cy, dotR, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        const sr = dotR * 0.35;
+        const s = dotR * 2;
+        ctx.beginPath();
+        ctx.roundRect(cx - dotR, cy - dotR, s, s, sr);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+// ============ ANIMATION ENGINE ============
+
+const allCards = [];
+let globalSpeed = 1;
+let smoothRotation = true;
+let faviconMode = false;
+let cardCounter = 0;
+
+class LogoCard {
+  constructor(config) {
+    this.id = String(++cardCounter).padStart(2, '0');
+    this.variant = config.variant;
+    this.shape = config.shape;
+    this.color = config.color;
+    this.sizing = config.sizing;
+    this.customName = config.customName || null;
+    this.customColors = config.customColors || null;   // {bg, dot}
+    this.customBaseSize = config.customBaseSize || null;
+    this.customWeights = config.customWeights || null;  // 3x3 matrix (legacy)
+    this.skipBuild = config.skipBuild || false;
+    this.rotationPeriods = config.rotationPeriods || 4;
+    this.paused = false;
+    this.visible = true;
+
+    const seqOpts = {
+      skipBuild: this.skipBuild,
+      rotationPeriods: this.rotationPeriods,
+    };
+
+    // Convert legacy customWeights to customRotWeights for buildFrameSequence
+    if (config.customRotWeights) {
+      seqOpts.customRotWeights = config.customRotWeights;
+    } else if (this.customWeights) {
+      const w0 = this.customWeights;
+      const w1 = rotateWeights(w0);
+      const w2 = rotateWeights(w1);
+      const w3 = rotateWeights(w2);
+      const wCycle = [w0, w1, w2, w3];
+      seqOpts.customRotWeights = [];
+      for (let i = 0; i < this.rotationPeriods; i++) {
+        seqOpts.customRotWeights.push(wCycle[i % 4]);
+      }
+    }
+
+    const seq = buildFrameSequence(this.variant, this.sizing, seqOpts);
+    this.frames = seq.frames;
+    this.timings = seq.timings;
+    this.loopStart = seq.loopStart;
+    this.weights = seq.weights;
+
+    // centerProfile: per-frame override for weights[1][1] (center dot)
+    // Allows center to fluctuate — small when J is visible, larger during rotation
+    if (config.centerProfile) {
+      this.weights = this.weights.map((w, i) => {
+        if (config.centerProfile[i] === undefined) return w;
+        const copy = w.map(r => [...r]);
+        copy[1][1] = config.centerProfile[i];
+        return copy;
+      });
+    }
+
+    // Animation state
+    this.currentFrame = 0;
+    this.elapsed = 0;
+    this.inLoop = false;
+
+    // DOM
+    this.el = document.createElement('div');
+    this.el.className = 'card';
+
+    const idLabel = document.createElement('div');
+    idLabel.className = 'card-id';
+    idLabel.textContent = '#' + this.id;
+    this.el.appendChild(idLabel);
+
+    this.canvas = document.createElement('canvas');
+    this.el.appendChild(this.canvas);
+
+    const label = document.createElement('div');
+    label.className = 'card-label';
+    if (this.customName) {
+      label.innerHTML = `<span>${this.customName}</span> <span>${this.variant}</span> <span>${this.shape}</span>`;
+    } else {
+      label.innerHTML = `<span>${this.variant}</span> <span>${this.shape}</span> <span>${this.color}</span> <span>${this.sizing}</span>`;
+    }
+    this.el.appendChild(label);
+
+    this.el.addEventListener('click', () => {
+      this.paused = !this.paused;
+      this.el.classList.toggle('paused', this.paused);
+    });
+    this.el.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      showEditor(this);
+    });
+
+    this.resize();
+  }
+
+  resize() {
+    const s = faviconMode ? 32 : 160;
+    const dpr = window.devicePixelRatio || 1;
+    this.canvas.width = s * dpr;
+    this.canvas.height = s * dpr;
+    this.canvas.style.width = s + 'px';
+    this.canvas.style.height = s + 'px';
+    this.ctx = this.canvas.getContext('2d');
+    this.ctx.scale(dpr, dpr);
+    this.renderSize = s;
+  }
+
+  update(dt) {
+    if (this.paused || !this.visible) return;
+    this.elapsed += dt * globalSpeed;
+
+    const frameDuration = this.timings[this.currentFrame];
+    if (this.elapsed >= frameDuration) {
+      this.elapsed -= frameDuration;
+      this.currentFrame++;
+
+      // Handle looping
+      if (this.currentFrame >= this.frames.length) {
+        this.currentFrame = this.loopStart - 1;
+        this.inLoop = true;
+      }
+    }
+    // Interpolation factor (0-1) within current frame
+    this.interpT = Math.min(this.elapsed / this.timings[this.currentFrame], 1);
+  }
+
+  draw() {
+    if (!this.visible) return;
+    const opts = {};
+    if (this.customColors) opts.colors = this.customColors;
+    if (this.customBaseSize) opts.baseDotRatio = this.customBaseSize;
+    const hasOpts = Object.keys(opts).length ? opts : undefined;
+
+    const inRotation = this.currentFrame >= this.loopStart - 1;
+    if (smoothRotation && inRotation) {
+      let next = this.currentFrame + 1;
+      if (next >= this.frames.length) next = this.loopStart - 1;
+      drawFrameInterp(
+        this.ctx,
+        this.frames[this.currentFrame], this.frames[next],
+        this.renderSize, this.shape, this.color,
+        this.weights[this.currentFrame], this.weights[next],
+        this.interpT || 0,
+        hasOpts
+      );
+    } else {
+      drawFrame(
+        this.ctx,
+        this.frames[this.currentFrame],
+        this.renderSize,
+        this.shape,
+        this.color,
+        this.weights[this.currentFrame],
+        hasOpts
+      );
+    }
+  }
+}
+
+// ============ SETUP ============
+
+const VARIANTS = Object.keys(VARIANT_DEFS);
+const SHAPES = ['circle', 'squircle'];
+const COLORS = Object.keys(COLOR_SCHEMES);
+const SIZINGS = Object.keys(SIZING_WEIGHTS);
+
+// Build filter buttons
+const filters = {
+  variant: new Set(VARIANTS),
+  shape: new Set(SHAPES),
+  color: new Set(COLORS),
+  sizing: new Set(SIZINGS),
+};
+
+function createFilterButtons(containerId, key, values) {
+  const container = document.getElementById(containerId);
+  values.forEach(v => {
+    const btn = document.createElement('button');
+    btn.className = 'toggle-btn active';
+    btn.textContent = v;
+    btn.addEventListener('click', () => {
+      if (filters[key].has(v)) {
+        filters[key].delete(v);
+        btn.classList.remove('active');
+      } else {
+        filters[key].add(v);
+        btn.classList.add('active');
+      }
+      applyFilters();
+    });
+    container.appendChild(btn);
+  });
+}
+
+createFilterButtons('filter-variant', 'variant', VARIANTS);
+createFilterButtons('filter-shape', 'shape', SHAPES);
+createFilterButtons('filter-color', 'color', COLORS);
+createFilterButtons('filter-sizing', 'sizing', SIZINGS);
+
+function updateFilterSummary() {
+  const parts = [];
+  for (const [key, allVals] of [['variant', VARIANTS], ['shape', SHAPES], ['color', COLORS], ['sizing', SIZINGS]]) {
+    const active = [...filters[key]];
+    if (active.length === allVals.length) {
+      parts.push(`${key}:*`);
+    } else if (active.length > 0) {
+      parts.push(`${key}:${active.join(',')}`);
+    }
+  }
+  const summary = parts.join(' | ');
+  const el = document.getElementById('filter-summary');
+  el.textContent = summary;
+}
+
+document.getElementById('filter-summary').addEventListener('click', () => {
+  const text = document.getElementById('filter-summary').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const el = document.getElementById('filter-summary');
+    const orig = el.textContent;
+    el.textContent = 'Copied!';
+    setTimeout(() => { el.textContent = orig; }, 800);
+  });
+});
+
+function applyFilters() {
+  allCards.forEach(card => {
+    if (card.customName) return; // custom cards always visible
+    const show =
+      filters.variant.has(card.variant) &&
+      filters.shape.has(card.shape) &&
+      filters.color.has(card.color) &&
+      filters.sizing.has(card.sizing);
+    card.visible = show;
+    card.el.style.display = show ? '' : 'none';
+  });
+  updateFilterSummary();
+}
+
+// Speed slider
+const speedSlider = document.getElementById('speed');
+const speedVal = document.getElementById('speed-val');
+speedSlider.addEventListener('input', () => {
+  globalSpeed = parseFloat(speedSlider.value);
+  speedVal.textContent = parseFloat(globalSpeed.toFixed(2)) + '×';
+});
+
+// Smooth rotation toggle
+const smoothToggle = document.getElementById('smooth-toggle');
+smoothToggle.addEventListener('click', () => {
+  smoothRotation = !smoothRotation;
+  smoothToggle.classList.toggle('active', smoothRotation);
+});
+
+// Favicon toggle
+const faviconToggle = document.getElementById('favicon-toggle');
+faviconToggle.addEventListener('click', () => {
+  faviconMode = !faviconMode;
+  faviconToggle.classList.toggle('active', faviconMode);
+  document.getElementById('grid').classList.toggle('favicon-mode', faviconMode);
+  allCards.forEach(card => card.resize());
+});
+
+// Build all cards
+const grid = document.getElementById('grid');
+for (const variant of VARIANTS) {
+  for (const shape of SHAPES) {
+    for (const color of COLORS) {
+      for (const sizing of SIZINGS) {
+        const card = new LogoCard({ variant, shape, color, sizing });
+        allCards.push(card);
+        grid.appendChild(card.el);
+      }
+    }
+  }
+}
+
+// ============ CUSTOM AA VARIATIONS ============
+// Anti-aliased J via dot sizing — heavy-7 + circle + dark/amber at small baseSize
+// Each explores a different treatment of the center dot and AA fringe
+
+// Weight matrix geometry for heavy-7 canonical [[0,0,1],[1,1,1],[1,1,1]]:
+//   (0,0)=0  (0,1)=0  (0,2)=1  ← only top-right renders (stem tip)
+//   (1,0)=1  (1,1)=1  (1,2)=1  ← hook arm, CENTER, stem body
+//   (2,0)=1  (2,1)=1  (2,2)=1  ← full base row
+//
+// The J stroke (from hook-6 pattern) occupies: (0,2), (1,0), (1,2), (2,0), (2,1), (2,2)
+// The ONLY non-J dot is (1,1) — center. It must be clearly smaller than the J stroke.
+// (0,0) and (0,1) never render in any rotation of heavy-7, so their values don't matter.
+//
+// centerProfile: 8 values for frames 0-7. Center dot fluctuates —
+// smallest at frame 4 (canonical J) and grows during rotation, creating a pulse.
+
+const AA_VARIATIONS = [
+  {
+    // Clear J with gentle center pulse
+    customName: 'aa-clear',
+    variant: 'heavy-7', shape: 'circle', color: 'dark/amber', sizing: 'trail',
+    customColors: { bg: '#1c1c1e', dot: '#e8a435' },
+    customBaseSize: 0.30,
+    //                  n/a   n/a   stem
+    customWeights: [[0.40, 0.30, 1.30],
+    //              hook  ctr   stem
+                    [0.80, 0.20, 1.10],
+    //              base  base  base
+                    [0.70, 0.85, 0.95]],
+    //           build-up(0-4)          rotation(5-7)
+    //           frames 0-2: center not present in matrix, value ignored
+    //           frame 3: center first appears (partial J)
+    //           frame 4: canonical = full J → center SMALLEST
+    //           frames 5-7: rotation → center breathes up then back down
+    centerProfile: [0.20, 0.20, 0.20, 0.20, 0.15, 0.35, 0.45, 0.30],
+  },
+  {
+    // Bolder stroke, more dramatic center breathing
+    customName: 'aa-bold',
+    variant: 'heavy-7', shape: 'circle', color: 'dark/amber', sizing: 'trail',
+    customColors: { bg: '#1c1c1e', dot: '#e8a435' },
+    customBaseSize: 0.30,
+    customWeights: [[0.35, 0.25, 1.40],
+                    [0.90, 0.20, 1.20],
+                    [0.80, 0.95, 1.05]],
+    centerProfile: [0.20, 0.20, 0.20, 0.20, 0.12, 0.40, 0.55, 0.35],
+  },
+  {
+    // High contrast — stem pops hard, deep center dip
+    customName: 'aa-contrast',
+    variant: 'heavy-7', shape: 'circle', color: 'dark/amber', sizing: 'trail',
+    customColors: { bg: '#1c1c1e', dot: '#e8a435' },
+    customBaseSize: 0.28,
+    customWeights: [[0.30, 0.20, 1.50],
+                    [0.95, 0.15, 1.25],
+                    [0.85, 1.00, 1.10]],
+    centerProfile: [0.15, 0.15, 0.15, 0.15, 0.10, 0.45, 0.60, 0.40],
+  },
+  {
+    // Softer AA — narrower weight range, subtler center motion
+    customName: 'aa-soft',
+    variant: 'heavy-7', shape: 'circle', color: 'dark/amber', sizing: 'trail',
+    customColors: { bg: '#1c1c1e', dot: '#e8a435' },
+    customBaseSize: 0.32,
+    customWeights: [[0.45, 0.40, 1.20],
+                    [0.75, 0.25, 1.05],
+                    [0.70, 0.80, 0.90]],
+    centerProfile: [0.25, 0.25, 0.25, 0.25, 0.20, 0.35, 0.42, 0.30],
+  },
+  {
+    // Even base, strong graduated stem — reads like a well-hinted glyph
+    customName: 'aa-hinted',
+    variant: 'heavy-7', shape: 'circle', color: 'dark/amber', sizing: 'trail',
+    customColors: { bg: '#1c1c1e', dot: '#e8a435' },
+    customBaseSize: 0.30,
+    customWeights: [[0.40, 0.35, 1.35],
+                    [0.85, 0.20, 1.15],
+                    [0.75, 0.90, 0.95]],
+    centerProfile: [0.20, 0.20, 0.20, 0.18, 0.13, 0.38, 0.50, 0.32],
+  },
+];
+
+// ============ CENTER-PULSE FULL-9 VARIATIONS ============
+// Full-9 with breathing center dot — smallest at canonical J, larger during rotation
+// Smooth interpolation between frames handled by the existing rotation logic
+
+const CENTER_PULSE_VARIATIONS = [
+  {
+    // full-9 wave, dark/light — center breathes: smallest at canonical (0°), largest at 180°
+    customName: 'pulse-dl-wave',
+    variant: 'full-9', shape: 'circle', color: 'dark/light', sizing: 'wave',
+    customColors: { bg: '#1c1c1e', dot: '#f0efe8' },
+    skipBuild: true,
+    rotationPeriods: 8,
+    // 8 rotation frames: 0°, 90°, 180°, 270°, 0°, 90°, 180°, 270°
+    // Center smallest at 0° (canonical J), largest at 180°
+    centerProfile: [0.20, 0.45, 0.65, 0.45, 0.20, 0.45, 0.65, 0.45],
+  },
+  {
+    customName: 'pulse-dl-trail',
+    variant: 'full-9', shape: 'circle', color: 'dark/light', sizing: 'trail',
+    customColors: { bg: '#1c1c1e', dot: '#f0efe8' },
+    skipBuild: true,
+    rotationPeriods: 8,
+    centerProfile: [0.20, 0.45, 0.65, 0.45, 0.20, 0.45, 0.65, 0.45],
+  },
+  {
+    customName: 'pulse-da-wave',
+    variant: 'full-9', shape: 'circle', color: 'dark/amber', sizing: 'wave',
+    customColors: { bg: '#1c1c1e', dot: '#e8a435' },
+    skipBuild: true,
+    rotationPeriods: 8,
+    centerProfile: [0.20, 0.45, 0.65, 0.45, 0.20, 0.45, 0.65, 0.45],
+  },
+  {
+    customName: 'pulse-da-trail',
+    variant: 'full-9', shape: 'circle', color: 'dark/amber', sizing: 'trail',
+    customColors: { bg: '#1c1c1e', dot: '#e8a435' },
+    skipBuild: true,
+    rotationPeriods: 8,
+    centerProfile: [0.20, 0.45, 0.65, 0.45, 0.20, 0.45, 0.65, 0.45],
+  },
+];
+
+// Add center-pulse divider + cards
+const cpDivider = document.createElement('div');
+cpDivider.className = 'grid-divider';
+cpDivider.textContent = 'Center-Pulse — full-9 with breathing center dot';
+grid.appendChild(cpDivider);
+
+for (const cfg of CENTER_PULSE_VARIATIONS) {
+  const card = new LogoCard(cfg);
+  card.el.classList.add('custom-card');
+  allCards.push(card);
+  grid.appendChild(card.el);
+}
+
+// Add divider
+const divider = document.createElement('div');
+divider.className = 'grid-divider';
+divider.textContent = 'AA Variations — anti-aliased J via dot sizing';
+grid.appendChild(divider);
+
+// Add custom cards
+for (const cfg of AA_VARIATIONS) {
+  const card = new LogoCard(cfg);
+  card.el.classList.add('custom-card');
+  allCards.push(card);
+  grid.appendChild(card.el);
+}
+
+updateFilterSummary();
+
+// Animation loop
+let lastTime = performance.now();
+function animate(now) {
+  const dt = now - lastTime;
+  lastTime = now;
+  if (document.getElementById('detail').classList.contains('active')) {
+    updateEditor(dt);
+    drawEditorFrame();
+  } else {
+    for (const card of allCards) {
+      card.update(dt);
+      card.draw();
+    }
+  }
+  requestAnimationFrame(animate);
+}
+// updateEditor/drawEditorFrame defined below; safe because RAF defers the first call
+requestAnimationFrame(animate);
+
+// ============ DETAIL / EDITOR VIEW ============
+
+let editorCard = null;      // the LogoCard being edited
+let editorPaused = false;
+let editorSpeed = 1;
+let editorFrame = 0;
+let editorElapsed = 0;
+// Editable state (independent of original card)
+let edShape = 'circle';
+let edBg = '#1c1c1e';
+let edDot = '#f0efe8';
+let edDotRatio = 0.6;
+let edTimings = [];
+let edFrames = [];
+let edWeightFrames = [];
+let edLoopStart = 5;
+// 8-period rotation state
+let edSkipBuild = false;
+let edRotWeights = [];   // array of 8 3×3 matrices (one per rotation period)
+let edEditPeriod = 0;    // which period (0-7) is being edited
+let edRotTimingMs = 140; // single rotation timing for all periods
+let edBuildTimings = [120, 120, 120, 140, 180];
+
+const detailEl = document.getElementById('detail');
+const gridEl = document.getElementById('grid');
+const controlsEl = document.querySelector('.controls');
+const headerEl = document.querySelector('h1');
+const subtitleEl = document.querySelector('.subtitle');
+const edCanvas = document.getElementById('editor-canvas');
+const edCtx = edCanvas.getContext('2d');
+
+function showEditor(card) {
+  editorCard = card;
+
+  edShape = card.shape;
+  const colors = card.customColors || COLOR_SCHEMES[card.color];
+  edBg = colors.bg;
+  edDot = colors.dot;
+  edDotRatio = card.customBaseSize || BASE_DOT_RATIO;
+  edSkipBuild = card.skipBuild || false;
+
+  // Extract 8 rotation weights from the card's actual weight frames
+  const origRotPeriods = card.rotationPeriods || 4;
+  if (card.skipBuild) {
+    // All frames are rotation frames
+    edRotWeights = card.weights.map(w => w.map(r => [...r]));
+  } else {
+    // Rotation starts at loopStart-1
+    const rotStart = card.loopStart - 1;
+    edRotWeights = [];
+    for (let i = rotStart; i < card.weights.length; i++) {
+      edRotWeights.push(card.weights[i].map(r => [...r]));
+    }
+  }
+  // Extend to 8 periods if card had fewer
+  while (edRotWeights.length < 8) {
+    const srcIdx = edRotWeights.length % origRotPeriods;
+    edRotWeights.push(edRotWeights[srcIdx].map(r => [...r]));
+  }
+
+  edEditPeriod = 0;
+  edRotTimingMs = 140;
+  edBuildTimings = [120, 120, 120, 140, 180];
+
+  // Reset playback
+  editorFrame = 0;
+  editorElapsed = 0;
+  editorPaused = false;
+  editorSpeed = 1;
+
+  // Rebuild frames from rotation state
+  rebuildEditorFrames();
+
+  // Populate UI
+  document.getElementById('editor-title').textContent = `Editing #${card.id} — ${card.variant}`;
+  populatePeriodSelector();
+  populateWeightInputs();
+  populateShapeButtons();
+  populateColorPresets();
+  syncColorInputs();
+  populateTimingSliders();
+  updateSkipBuildButton();
+  document.getElementById('editor-dot-ratio').value = edDotRatio;
+  document.getElementById('editor-dot-ratio-val').textContent = edDotRatio.toFixed(2);
+  document.getElementById('editor-speed').value = editorSpeed;
+  document.getElementById('editor-speed-val').textContent = editorSpeed + '×';
+  updatePlaybackButtons();
+  updateConfigOutput();
+
+  // Setup canvas for HiDPI
+  const s = 300;
+  const dpr = window.devicePixelRatio || 1;
+  edCanvas.width = s * dpr;
+  edCanvas.height = s * dpr;
+  edCanvas.style.width = s + 'px';
+  edCanvas.style.height = s + 'px';
+  edCtx.setTransform(1, 0, 0, 1, 0, 0);
+  edCtx.scale(dpr, dpr);
+
+  // Show editor, hide grid
+  gridEl.style.display = 'none';
+  controlsEl.style.display = 'none';
+  headerEl.style.display = 'none';
+  subtitleEl.style.display = 'none';
+  detailEl.classList.add('active');
+}
+
+function hideEditor() {
+  detailEl.classList.remove('active');
+  gridEl.style.display = '';
+  controlsEl.style.display = '';
+  headerEl.style.display = '';
+  subtitleEl.style.display = '';
+  editorCard = null;
+}
+
+function rebuildEditorFrames() {
+  if (!editorCard) return;
+  const variant = editorCard.variant;
+  const rotMatrices = buildRotationMatrices(variant, 8);
+
+  if (edSkipBuild) {
+    edFrames = rotMatrices;
+    edWeightFrames = edRotWeights.map(w => w.map(r => [...r]));
+    edTimings = Array(8).fill(edRotTimingMs);
+    edLoopStart = 1;
+  } else {
+    const buildFrames = buildUpFrames(variant);
+    edFrames = [...buildFrames, ...rotMatrices.slice(1)];
+    edWeightFrames = [
+      ...Array(5).fill(edRotWeights[0]),
+      ...edRotWeights.slice(1),
+    ];
+    edTimings = [...edBuildTimings, ...Array(7).fill(edRotTimingMs)];
+    edLoopStart = 5;
+  }
+}
+
+// Custom drawFrame that uses editor state — with smooth rotation support
+function drawEditorFrame() {
+  const size = 300;
+
+  edCtx.save();
+  edCtx.setTransform(1, 0, 0, 1, 0, 0);
+  const dpr = window.devicePixelRatio || 1;
+  edCtx.scale(dpr, dpr);
+
+  const inRotation = editorFrame >= edLoopStart - 1;
+  if (smoothRotation && inRotation) {
+    let next = editorFrame + 1;
+    if (next >= edFrames.length) next = edLoopStart - 1;
+    const t = Math.min(editorElapsed / edTimings[editorFrame], 1);
+    drawFrameInterp(
+      edCtx,
+      edFrames[editorFrame], edFrames[next],
+      size, edShape, null,
+      edWeightFrames[editorFrame], edWeightFrames[next],
+      t,
+      { colors: { bg: edBg, dot: edDot }, baseDotRatio: edDotRatio }
+    );
+  } else {
+    drawFrame(
+      edCtx,
+      edFrames[editorFrame],
+      size, edShape, null,
+      edWeightFrames[editorFrame],
+      { colors: { bg: edBg, dot: edDot }, baseDotRatio: edDotRatio }
+    );
+  }
+
+  edCtx.restore();
+  updatePeriodHighlight();
+}
+
+// Editor animation (runs inside the main loop)
+function updateEditor(dt) {
+  if (!editorCard || editorPaused) return;
+  editorElapsed += dt * editorSpeed;
+  const frameDuration = edTimings[editorFrame];
+  if (editorElapsed >= frameDuration) {
+    editorElapsed -= frameDuration;
+    editorFrame++;
+    if (editorFrame >= edFrames.length) {
+      editorFrame = edLoopStart - 1;
+    }
+  }
+}
+
+// ---- Period selector ----
+function populatePeriodSelector() {
+  const container = document.getElementById('editor-period-selector');
+  container.innerHTML = '';
+  for (let i = 0; i < 8; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'period-btn' + (i === edEditPeriod ? ' active' : '');
+    btn.textContent = (i + 1);
+    btn.dataset.period = i;
+    btn.addEventListener('click', () => {
+      edEditPeriod = i;
+      highlightActivePeriod();
+      populateWeightInputs();
+    });
+    container.appendChild(btn);
+  }
+}
+
+function highlightActivePeriod() {
+  const btns = document.querySelectorAll('#editor-period-selector .period-btn');
+  btns.forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.period) === edEditPeriod);
+  });
+}
+
+// Update current-frame highlight on period buttons during animation
+function updatePeriodHighlight() {
+  const btns = document.querySelectorAll('#editor-period-selector .period-btn');
+  // Map editor frame index to rotation period (0-7)
+  let rotPeriod;
+  if (edSkipBuild) {
+    rotPeriod = editorFrame;
+  } else {
+    rotPeriod = editorFrame >= (edLoopStart - 1) ? editorFrame - (edLoopStart - 1) : -1;
+  }
+  btns.forEach(btn => {
+    btn.classList.toggle('current-frame', parseInt(btn.dataset.period) === rotPeriod);
+  });
+}
+
+// ---- Weight matrix inputs ----
+function populateWeightInputs() {
+  const container = document.getElementById('editor-weights');
+  container.innerHTML = '';
+  const w = edRotWeights[edEditPeriod];
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      inp.min = '0.1';
+      inp.max = '2.0';
+      inp.step = '0.05';
+      inp.value = w[r][c].toFixed(2);
+      inp.dataset.r = r;
+      inp.dataset.c = c;
+      const row = r, col = c;
+      inp.addEventListener('input', () => {
+        const v = parseFloat(inp.value);
+        if (!isNaN(v) && v >= 0.1 && v <= 2.0) {
+          edRotWeights[edEditPeriod][row][col] = v;
+          rebuildEditorFrames();
+          updateConfigOutput();
+        }
+      });
+      container.appendChild(inp);
+    }
+  }
+}
+
+// ---- Skip build toggle ----
+function updateSkipBuildButton() {
+  const btn = document.getElementById('editor-skip-build');
+  btn.textContent = edSkipBuild ? 'On' : 'Off';
+  btn.classList.toggle('active', edSkipBuild);
+}
+
+document.getElementById('editor-skip-build').addEventListener('click', () => {
+  edSkipBuild = !edSkipBuild;
+  updateSkipBuildButton();
+  rebuildEditorFrames();
+  editorFrame = 0;
+  editorElapsed = 0;
+  populateTimingSliders();
+  updateConfigOutput();
+});
+
+// ---- Shape toggle ----
+function populateShapeButtons() {
+  const btns = document.querySelectorAll('#editor-shape-row .toggle-btn');
+  btns.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.shape === edShape);
+    btn.onclick = () => {
+      edShape = btn.dataset.shape;
+      btns.forEach(b => b.classList.toggle('active', b.dataset.shape === edShape));
+      updateConfigOutput();
+    };
+  });
+}
+
+// ---- Color presets + custom ----
+function populateColorPresets() {
+  const container = document.getElementById('editor-color-presets');
+  container.innerHTML = '';
+  for (const [name, colors] of Object.entries(COLOR_SCHEMES)) {
+    const btn = document.createElement('button');
+    btn.className = 'color-preset-btn';
+    btn.textContent = name;
+    btn.addEventListener('click', () => {
+      edBg = colors.bg;
+      edDot = colors.dot;
+      syncColorInputs();
+      highlightActivePreset();
+      updateConfigOutput();
+    });
+    container.appendChild(btn);
+  }
+  highlightActivePreset();
+}
+
+function highlightActivePreset() {
+  const btns = document.querySelectorAll('#editor-color-presets .color-preset-btn');
+  btns.forEach(btn => {
+    const colors = COLOR_SCHEMES[btn.textContent];
+    btn.classList.toggle('active', colors && colors.bg === edBg && colors.dot === edDot);
+  });
+}
+
+function syncColorInputs() {
+  document.getElementById('editor-bg-picker').value = edBg;
+  document.getElementById('editor-bg-hex').value = edBg;
+  document.getElementById('editor-dot-picker').value = edDot;
+  document.getElementById('editor-dot-hex').value = edDot;
+}
+
+document.getElementById('editor-bg-picker').addEventListener('input', (e) => {
+  edBg = e.target.value;
+  document.getElementById('editor-bg-hex').value = edBg;
+  highlightActivePreset();
+  updateConfigOutput();
+});
+document.getElementById('editor-bg-hex').addEventListener('input', (e) => {
+  if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) {
+    edBg = e.target.value;
+    document.getElementById('editor-bg-picker').value = edBg;
+    highlightActivePreset();
+    updateConfigOutput();
+  }
+});
+document.getElementById('editor-dot-picker').addEventListener('input', (e) => {
+  edDot = e.target.value;
+  document.getElementById('editor-dot-hex').value = edDot;
+  highlightActivePreset();
+  updateConfigOutput();
+});
+document.getElementById('editor-dot-hex').addEventListener('input', (e) => {
+  if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) {
+    edDot = e.target.value;
+    document.getElementById('editor-dot-picker').value = edDot;
+    highlightActivePreset();
+    updateConfigOutput();
+  }
+});
+
+// ---- Dot ratio slider ----
+document.getElementById('editor-dot-ratio').addEventListener('input', (e) => {
+  edDotRatio = parseFloat(e.target.value);
+  document.getElementById('editor-dot-ratio-val').textContent = edDotRatio.toFixed(2);
+  updateConfigOutput();
+});
+
+// ---- Timing sliders ----
+function populateTimingSliders() {
+  const container = document.getElementById('editor-timings');
+  container.innerHTML = '';
+
+  // Build timings (hidden when skip-build is on)
+  if (!edSkipBuild) {
+    const buildLabels = ['Build 1', 'Build 2', 'Build 3', 'Build 4', 'Build 5'];
+    edBuildTimings.forEach((ms, i) => {
+      const row = document.createElement('div');
+      row.className = 'editor-row';
+      const lbl = document.createElement('label');
+      lbl.textContent = buildLabels[i];
+      const inp = document.createElement('input');
+      inp.type = 'range';
+      inp.min = '40';
+      inp.max = '500';
+      inp.step = '10';
+      inp.value = ms;
+      const val = document.createElement('span');
+      val.className = 'val';
+      val.textContent = ms + 'ms';
+      const idx = i;
+      inp.addEventListener('input', () => {
+        edBuildTimings[idx] = parseInt(inp.value);
+        val.textContent = inp.value + 'ms';
+        rebuildEditorFrames();
+        updateConfigOutput();
+      });
+      row.appendChild(lbl);
+      row.appendChild(inp);
+      row.appendChild(val);
+      container.appendChild(row);
+    });
+  }
+
+  // Rotation timing (single slider for all 8 periods)
+  const rotRow = document.createElement('div');
+  rotRow.className = 'editor-row';
+  const rotLbl = document.createElement('label');
+  rotLbl.textContent = 'Rotation';
+  const rotInp = document.createElement('input');
+  rotInp.type = 'range';
+  rotInp.min = '40';
+  rotInp.max = '500';
+  rotInp.step = '10';
+  rotInp.value = edRotTimingMs;
+  const rotVal = document.createElement('span');
+  rotVal.className = 'val';
+  rotVal.textContent = edRotTimingMs + 'ms';
+  rotInp.addEventListener('input', () => {
+    edRotTimingMs = parseInt(rotInp.value);
+    rotVal.textContent = rotInp.value + 'ms';
+    rebuildEditorFrames();
+    updateConfigOutput();
+  });
+  rotRow.appendChild(rotLbl);
+  rotRow.appendChild(rotInp);
+  rotRow.appendChild(rotVal);
+  container.appendChild(rotRow);
+}
+
+// ---- Playback controls ----
+function updatePlaybackButtons() {
+  document.getElementById('ep-play').classList.toggle('active', !editorPaused);
+  document.getElementById('ep-pause').classList.toggle('active', editorPaused);
+}
+
+document.getElementById('ep-play').addEventListener('click', () => {
+  editorPaused = false;
+  updatePlaybackButtons();
+});
+document.getElementById('ep-pause').addEventListener('click', () => {
+  editorPaused = true;
+  updatePlaybackButtons();
+});
+document.getElementById('ep-step').addEventListener('click', () => {
+  editorPaused = true;
+  editorFrame++;
+  if (editorFrame >= edFrames.length) {
+    editorFrame = edLoopStart - 1;
+  }
+  editorElapsed = 0;
+  updatePlaybackButtons();
+  drawEditorFrame();
+});
+
+document.getElementById('editor-speed').addEventListener('input', (e) => {
+  editorSpeed = parseFloat(e.target.value);
+  document.getElementById('editor-speed-val').textContent = editorSpeed + '×';
+});
+
+// ---- Back button ----
+document.getElementById('editor-back').addEventListener('click', hideEditor);
+
+// ---- Copy config ----
+function buildConfigString() {
+  const card = editorCard;
+  const fmtW = (w) => `[[${w[0].map(v=>v.toFixed(2)).join(',')}],[${w[1].map(v=>v.toFixed(2)).join(',')}],[${w[2].map(v=>v.toFixed(2)).join(',')}]]`;
+
+  let lines = [`JENNER_EDIT:`];
+  lines.push(`  variant=${card.variant} shape=${edShape} bg=${edBg} dot=${edDot} baseSize=${edDotRatio.toFixed(2)}`);
+  lines.push(`  skipBuild=${edSkipBuild} rotMs=${edRotTimingMs}`);
+  if (!edSkipBuild) {
+    lines.push(`  buildMs=${edBuildTimings.join(',')}`);
+  }
+  for (let i = 0; i < 8; i++) {
+    lines.push(`  P${i+1}=${fmtW(edRotWeights[i])}`);
+  }
+  return lines.join('\n');
+}
+
+function updateConfigOutput() {
+  if (!editorCard) return;
+  document.getElementById('editor-config-output').value = buildConfigString();
+}
+
+document.getElementById('editor-copy').addEventListener('click', () => {
+  const text = buildConfigString();
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('editor-copy');
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = orig; }, 1000);
+  });
+});
+
+// ============ EXPORT ASSET PACK ============
+
+// Platform size definitions
+const EXPORT_SIZES = {
+  favicon:   [16, 32, 48, 64, 96, 128, 256],
+  web:       [180, 192, 512, 1200],
+  macos:     [16, 32, 64, 128, 256, 512, 1024],
+  windows:   [16, 24, 32, 48, 64, 128, 256],
+  linux:     [16, 22, 24, 32, 48, 64, 96, 128, 256, 512],
+  marketing: [1024, 2048, 4096],
+};
+
+// Filename prefixes per platform
+const EXPORT_NAMES = {
+  favicon:   (s) => `favicon-${s}.png`,
+  web:       (s) => {
+    if (s === 180) return 'apple-touch-icon-180.png';
+    if (s === 192) return 'pwa-192.png';
+    if (s === 512) return 'pwa-512.png';
+    if (s === 1200) return 'og-1200.png';
+    return `web-${s}.png`;
+  },
+  macos:     (s) => `icon-${s}.png`,
+  windows:   (s) => `icon-${s}.png`,
+  linux:     (s) => `icon-${s}.png`,
+  marketing: (s) => `logo-${s}.png`,
+};
+
+// Background variations
+function getExportVariations(edBgColor, edDotColor) {
+  // Determine if dot is light or dark for fallbacks
+  function luminance(hex) {
+    const r = parseInt(hex.slice(1,3), 16) / 255;
+    const g = parseInt(hex.slice(3,5), 16) / 255;
+    const b = parseInt(hex.slice(5,7), 16) / 255;
+    return 0.299 * r + 0.587 * g + 0.114 * b;
+  }
+  const dotLum = luminance(edDotColor);
+  // For on-white: use dot color if dark enough, else use near-black
+  const onWhiteDot = dotLum < 0.6 ? edDotColor : '#1c1c1e';
+  // For on-black: use dot color if light enough, else use near-white
+  const onBlackDot = dotLum > 0.4 ? edDotColor : '#f0efe8';
+
+  return {
+    'original':       { bg: edBgColor, dot: edDotColor, transparent: false },
+    'transparent':    { bg: null,      dot: edDotColor, transparent: true },
+    'on-white':       { bg: '#ffffff', dot: onWhiteDot, transparent: false },
+    'on-black':       { bg: '#000000', dot: onBlackDot, transparent: false },
+    'mono-on-white':  { bg: '#ffffff', dot: '#1c1c1e',  transparent: false },
+    'mono-on-black':  { bg: '#000000', dot: '#f0efe8',  transparent: false },
+  };
+}
+
+// Render a single export canvas at a given size
+function renderExportCanvas(size, bgColor, dotColor, shape, matrix, weights, dotRatio, transparent) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  const cellSize = size / 3;
+  const baseDotR = (cellSize * dotRatio) / 2;
+  const tileRadius = size * 0.12;
+
+  // Background
+  if (!transparent) {
+    ctx.beginPath();
+    ctx.roundRect(0, 0, size, size, tileRadius);
+    ctx.fillStyle = bgColor;
+    ctx.fill();
+  }
+
+  // Dots
+  ctx.fillStyle = dotColor;
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      if (!matrix[r][c]) continue;
+      const scale = weights[r][c];
+      const dr = baseDotR * scale;
+      const cx = cellSize * c + cellSize / 2;
+      const cy = cellSize * r + cellSize / 2;
+      if (shape === 'circle') {
+        ctx.beginPath();
+        ctx.arc(cx, cy, dr, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        const sr = dr * 0.35;
+        const s = dr * 2;
+        ctx.beginPath();
+        ctx.roundRect(cx - dr, cy - dr, s, s, sr);
+        ctx.fill();
+      }
+    }
+  }
+  return canvas;
+}
+
+// Generate SVG string from parameters
+function generateExportSVG(svgSize, bgColor, dotColor, shape, matrix, weights, dotRatio, transparent) {
+  const size = svgSize || 512;
+  const cellSize = size / 3;
+  const baseDotR = (cellSize * dotRatio) / 2;
+  const tileRadius = size * 0.12;
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">\n`;
+
+  // Background
+  if (!transparent) {
+    svg += `  <rect width="${size}" height="${size}" rx="${tileRadius.toFixed(2)}" ry="${tileRadius.toFixed(2)}" fill="${bgColor}"/>\n`;
+  }
+
+  // Dots
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      if (!matrix[r][c]) continue;
+      const scale = weights[r][c];
+      const dr = baseDotR * scale;
+      const cx = cellSize * c + cellSize / 2;
+      const cy = cellSize * r + cellSize / 2;
+      if (shape === 'circle') {
+        svg += `  <circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${dr.toFixed(2)}" fill="${dotColor}"/>\n`;
+      } else {
+        const sr = dr * 0.35;
+        const s = dr * 2;
+        svg += `  <rect x="${(cx - dr).toFixed(2)}" y="${(cy - dr).toFixed(2)}" width="${s.toFixed(2)}" height="${s.toFixed(2)}" rx="${sr.toFixed(2)}" ry="${sr.toFixed(2)}" fill="${dotColor}"/>\n`;
+      }
+    }
+  }
+
+  svg += `</svg>`;
+  return svg;
+}
+
+// Convert canvas to blob (Promise-based)
+function canvasToBlob(canvas) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), 'image/png');
+  });
+}
+
+// Export orchestrator
+document.getElementById('export-btn').addEventListener('click', async () => {
+  if (!editorCard) return;
+
+  const btn = document.getElementById('export-btn');
+  const progressDiv = document.getElementById('export-progress');
+  const progressBar = document.getElementById('export-bar');
+  const statusEl = document.getElementById('export-status');
+
+  btn.disabled = true;
+  progressDiv.style.display = 'block';
+  progressBar.value = 0;
+  statusEl.textContent = 'Preparing...';
+
+  try {
+    // Determine which frame to export
+    const frameSel = document.getElementById('export-frame').value;
+    let frameIdx;
+    if (frameSel === 'current') {
+      frameIdx = editorFrame;
+    } else {
+      // canonical = first rotation frame (period 0)
+      frameIdx = edSkipBuild ? 0 : (edLoopStart - 1);
+    }
+    const matrix = edFrames[frameIdx];
+    const weights = edWeightFrames[frameIdx];
+
+    // Get variations
+    const variations = getExportVariations(edBg, edDot);
+    const variationKeys = Object.keys(variations);
+    const platformKeys = Object.keys(EXPORT_SIZES);
+
+    // Count total renders for progress
+    let totalRenders = 0;
+    for (const pk of platformKeys) {
+      totalRenders += EXPORT_SIZES[pk].length;
+    }
+    totalRenders *= variationKeys.length; // PNG renders
+    totalRenders += variationKeys.length;  // SVG renders
+    let completedRenders = 0;
+
+    const zip = new JSZip();
+    const root = zip.folder('jenner-logo-export');
+
+    // Generate PNGs for each variation × platform × size
+    for (const vk of variationKeys) {
+      const v = variations[vk];
+      const varFolder = root.folder(vk);
+
+      for (const pk of platformKeys) {
+        const platFolder = varFolder.folder(pk);
+        const sizes = EXPORT_SIZES[pk];
+
+        for (const size of sizes) {
+          const canvas = renderExportCanvas(
+            size, v.bg, v.dot, edShape, matrix, weights, edDotRatio, v.transparent
+          );
+          const blob = await canvasToBlob(canvas);
+          const filename = EXPORT_NAMES[pk](size);
+          platFolder.file(filename, blob);
+
+          completedRenders++;
+          const pct = Math.round((completedRenders / totalRenders) * 100);
+          progressBar.value = pct;
+          statusEl.textContent = `Rendering ${vk}/${pk}/${size}px... (${pct}%)`;
+
+          // Yield to UI thread every few renders
+          if (completedRenders % 5 === 0) {
+            await new Promise(r => setTimeout(r, 0));
+          }
+        }
+      }
+    }
+
+    // Generate SVGs
+    const svgFolder = root.folder('svg');
+    for (const vk of variationKeys) {
+      const v = variations[vk];
+      const svgStr = generateExportSVG(512, v.bg, v.dot, edShape, matrix, weights, edDotRatio, v.transparent);
+      svgFolder.file(`logo-${vk}.svg`, svgStr);
+      completedRenders++;
+      const pct = Math.round((completedRenders / totalRenders) * 100);
+      progressBar.value = pct;
+      statusEl.textContent = `Generating SVG (${vk})... (${pct}%)`;
+    }
+
+    // Generate ZIP
+    statusEl.textContent = 'Compressing ZIP...';
+    const blob = await zip.generateAsync({ type: 'blob' }, (metadata) => {
+      progressBar.value = Math.round(metadata.percent);
+    });
+
+    // Trigger download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'jenner-logo-export.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    statusEl.textContent = 'Done! ZIP downloaded.';
+    progressBar.value = 100;
+  } catch (err) {
+    statusEl.textContent = 'Error: ' + err.message;
+    console.error('Export error:', err);
+  } finally {
+    btn.disabled = false;
+    setTimeout(() => {
+      progressDiv.style.display = 'none';
+    }, 3000);
+  }
+});
+
+</script>
+</body>
+</html>
