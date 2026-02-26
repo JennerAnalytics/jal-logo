@@ -793,11 +793,8 @@ function drawFrame(ctx, matrix, size, dotShape, colorScheme, weights, opts) {
 
   // Background
   ctx.clearRect(0, 0, size, size);
-  const tileRadius = size * 0.12;
-  ctx.beginPath();
-  ctx.roundRect(0, 0, size, size, tileRadius);
   ctx.fillStyle = bg;
-  ctx.fill();
+  ctx.fillRect(0, 0, size, size);
 
   // Dots
   ctx.fillStyle = dot;
@@ -836,11 +833,8 @@ function drawFrameInterp(ctx, matA, matB, size, dotShape, colorScheme, weightsA,
   const st = t * t * (3 - 2 * t);
 
   ctx.clearRect(0, 0, size, size);
-  const tileRadius = size * 0.12;
-  ctx.beginPath();
-  ctx.roundRect(0, 0, size, size, tileRadius);
   ctx.fillStyle = bg;
-  ctx.fill();
+  ctx.fillRect(0, 0, size, size);
 
   ctx.fillStyle = dot;
   for (let r = 0; r < 3; r++) {
@@ -1958,14 +1952,11 @@ function renderExportCanvas(size, bgColor, dotColor, shape, matrix, weights, dot
 
   const cellSize = size / 3;
   const baseDotR = (cellSize * dotRatio) / 2;
-  const tileRadius = size * 0.12;
 
   // Background
   if (!transparent) {
-    ctx.beginPath();
-    ctx.roundRect(0, 0, size, size, tileRadius);
     ctx.fillStyle = bgColor;
-    ctx.fill();
+    ctx.fillRect(0, 0, size, size);
   }
 
   // Dots
@@ -1998,13 +1989,12 @@ function generateExportSVG(svgSize, bgColor, dotColor, shape, matrix, weights, d
   const size = svgSize || 512;
   const cellSize = size / 3;
   const baseDotR = (cellSize * dotRatio) / 2;
-  const tileRadius = size * 0.12;
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">\n`;
 
   // Background
   if (!transparent) {
-    svg += `  <rect width="${size}" height="${size}" rx="${tileRadius.toFixed(2)}" ry="${tileRadius.toFixed(2)}" fill="${bgColor}"/>\n`;
+    svg += `  <rect width="${size}" height="${size}" fill="${bgColor}"/>\n`;
   }
 
   // Dots
@@ -2040,17 +2030,14 @@ function renderExportCanvasInterp(size, bgColor, dotColor, shape, matA, matB, we
 
   const cellSize = size / 3;
   const baseDotR = (cellSize * dotRatio) / 2;
-  const tileRadius = size * 0.12;
 
   // Smoothstep easing
   const st = t * t * (3 - 2 * t);
 
   // Background
   if (!transparent) {
-    ctx.beginPath();
-    ctx.roundRect(0, 0, size, size, tileRadius);
     ctx.fillStyle = bgColor;
-    ctx.fill();
+    ctx.fillRect(0, 0, size, size);
   }
 
   // Dots
