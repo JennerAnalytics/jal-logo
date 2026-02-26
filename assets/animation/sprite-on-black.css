@@ -1,0 +1,59 @@
+/* Jenner Logo Sprite Animation */
+.jenner-logo {
+  width: 256px;
+  height: 256px;
+  background-size: 12288px 256px;
+  animation: jenner-rotate 11.18s steps(1) infinite;
+}
+
+@keyframes jenner-rotate {
+  0.00% { background-position: -0px 0; }
+  2.08% { background-position: -256px 0; }
+  4.17% { background-position: -512px 0; }
+  6.25% { background-position: -768px 0; }
+  8.33% { background-position: -1024px 0; }
+  10.42% { background-position: -1280px 0; }
+  12.50% { background-position: -1536px 0; }
+  14.58% { background-position: -1792px 0; }
+  16.67% { background-position: -2048px 0; }
+  18.75% { background-position: -2304px 0; }
+  20.83% { background-position: -2560px 0; }
+  22.92% { background-position: -2816px 0; }
+  25.00% { background-position: -3072px 0; }
+  27.08% { background-position: -3328px 0; }
+  29.17% { background-position: -3584px 0; }
+  31.25% { background-position: -3840px 0; }
+  33.33% { background-position: -4096px 0; }
+  35.42% { background-position: -4352px 0; }
+  37.50% { background-position: -4608px 0; }
+  39.58% { background-position: -4864px 0; }
+  41.67% { background-position: -5120px 0; }
+  43.75% { background-position: -5376px 0; }
+  45.83% { background-position: -5632px 0; }
+  47.92% { background-position: -5888px 0; }
+  50.00% { background-position: -6144px 0; }
+  52.08% { background-position: -6400px 0; }
+  54.17% { background-position: -6656px 0; }
+  56.25% { background-position: -6912px 0; }
+  58.33% { background-position: -7168px 0; }
+  60.42% { background-position: -7424px 0; }
+  62.50% { background-position: -7680px 0; }
+  64.58% { background-position: -7936px 0; }
+  66.67% { background-position: -8192px 0; }
+  68.75% { background-position: -8448px 0; }
+  70.83% { background-position: -8704px 0; }
+  72.92% { background-position: -8960px 0; }
+  75.00% { background-position: -9216px 0; }
+  77.08% { background-position: -9472px 0; }
+  79.17% { background-position: -9728px 0; }
+  81.25% { background-position: -9984px 0; }
+  83.33% { background-position: -10240px 0; }
+  85.42% { background-position: -10496px 0; }
+  87.50% { background-position: -10752px 0; }
+  89.58% { background-position: -11008px 0; }
+  91.67% { background-position: -11264px 0; }
+  93.75% { background-position: -11520px 0; }
+  95.83% { background-position: -11776px 0; }
+  97.92% { background-position: -12032px 0; }
+  100% { background-position: 0 0; }
+}
