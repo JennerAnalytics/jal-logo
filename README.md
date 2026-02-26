@@ -173,16 +173,36 @@ jenner-logo-export/
 ├── on-black/           # Black bg, auto-adjusted dot color
 ├── mono-on-white/      # White bg, dark dots (#1c1c1e)
 ├── mono-on-black/      # Black bg, light dots (#f0efe8)
-└── svg/
-    ├── logo-original.svg
-    ├── logo-transparent.svg
-    ├── logo-on-white.svg
-    ├── logo-on-black.svg
-    ├── logo-mono-on-white.svg
-    └── logo-mono-on-black.svg
+├── svg/
+│   ├── logo-original.svg
+│   ├── logo-transparent.svg
+│   ├── logo-on-white.svg
+│   ├── logo-on-black.svg
+│   ├── logo-mono-on-white.svg
+│   └── logo-mono-on-black.svg
+└── animation/
+    ├── logo-{variation}.gif         # Animated GIF at 256px (looping)
+    ├── logo-{variation}-512.gif     # Animated GIF at 512px (marketing)
+    ├── sprite-{variation}.png       # Horizontal sprite sheet (all frames)
+    ├── sprite-{variation}.css       # CSS @keyframes for sprite animation
+    └── logo-{variation}.apng        # Animated PNG (full quality, looping)
 ```
 
-**6 background variations × 6 platform size sets + 6 SVGs** — everything needed for web, desktop, mobile, and marketing use.
+**6 background variations × 6 platform size sets + 6 SVGs + 6 animation sets** — everything needed for web, desktop, mobile, and marketing use.
+
+#### Animation Files
+
+Each variation gets a full set of animation assets:
+
+| File | Format | Size | Use case |
+|------|--------|------|----------|
+| `logo-{v}.gif` | Animated GIF | 256px | Web embeds, email signatures |
+| `logo-{v}-512.gif` | Animated GIF | 512px | Marketing, presentations |
+| `sprite-{v}.png` | PNG sprite sheet | 256px × N frames | CSS animation (best performance) |
+| `sprite-{v}.css` | CSS keyframes | — | Plug-and-play sprite animation |
+| `logo-{v}.apng` | Animated PNG | 256px | Full-quality animation (Safari, Firefox) |
+
+The animations capture the full rotation loop with 6 interpolation sub-steps per frame transition (48 frames total for an 8-period loop), producing smooth motion with smoothstep easing.
 
 ---
 

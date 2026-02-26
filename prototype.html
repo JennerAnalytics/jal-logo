@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Jenner Logo Prototype Explorer</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -2016,6 +2017,311 @@ function generateExportSVG(svgSize, bgColor, dotColor, shape, matrix, weights, d
   return svg;
 }
 
+// ============ ANIMATION EXPORT FUNCTIONS ============
+
+// Render an interpolated export canvas (between two frames)
+function renderExportCanvasInterp(size, bgColor, dotColor, shape, matA, matB, weightsA, weightsB, t, dotRatio, transparent) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  const cellSize = size / 3;
+  const baseDotR = (cellSize * dotRatio) / 2;
+  const tileRadius = size * 0.12;
+
+  // Smoothstep easing
+  const st = t * t * (3 - 2 * t);
+
+  // Background
+  if (!transparent) {
+    ctx.beginPath();
+    ctx.roundRect(0, 0, size, size, tileRadius);
+    ctx.fillStyle = bgColor;
+    ctx.fill();
+  }
+
+  // Dots
+  ctx.fillStyle = dotColor;
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const inA = matA[r][c];
+      const inB = matB[r][c];
+      if (!inA && !inB) continue;
+
+      let scale;
+      if (inA && inB) {
+        scale = weightsA[r][c] * (1 - st) + weightsB[r][c] * st;
+      } else if (inA) {
+        scale = weightsA[r][c] * (1 - st);
+      } else {
+        scale = weightsB[r][c] * st;
+      }
+      if (scale < 0.01) continue;
+
+      const dr = baseDotR * scale;
+      const cx = cellSize * c + cellSize / 2;
+      const cy = cellSize * r + cellSize / 2;
+      if (shape === 'circle') {
+        ctx.beginPath();
+        ctx.arc(cx, cy, dr, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        const sr = dr * 0.35;
+        const s = dr * 2;
+        ctx.beginPath();
+        ctx.roundRect(cx - dr, cy - dr, s, s, sr);
+        ctx.fill();
+      }
+    }
+  }
+  return canvas;
+}
+
+// Capture animation frames for the rotation loop with sub-frame interpolation
+function captureAnimationFrames(size, bgColor, dotColor, shape, dotRatio, transparent, frames, weightFrames, timings, loopStart) {
+  const SUBSTEPS = 6; // sub-frames per transition
+  const result = [];
+  const rotStart = loopStart - 1; // index of first rotation frame
+  const rotEnd = frames.length;
+  const rotCount = rotEnd - rotStart;
+
+  for (let i = 0; i < rotCount; i++) {
+    const frameIdx = rotStart + i;
+    const nextIdx = rotStart + ((i + 1) % rotCount);
+    const delayMs = Math.round(timings[frameIdx] / SUBSTEPS);
+
+    for (let sub = 0; sub < SUBSTEPS; sub++) {
+      const t = sub / SUBSTEPS;
+      if (sub === 0) {
+        // Exact keyframe — no interpolation needed
+        const canvas = renderExportCanvas(
+          size, bgColor, dotColor, shape,
+          frames[frameIdx], weightFrames[frameIdx],
+          dotRatio, transparent
+        );
+        result.push({ canvas, delayMs });
+      } else {
+        const canvas = renderExportCanvasInterp(
+          size, bgColor, dotColor, shape,
+          frames[frameIdx], frames[nextIdx],
+          weightFrames[frameIdx], weightFrames[nextIdx],
+          t, dotRatio, transparent
+        );
+        result.push({ canvas, delayMs });
+      }
+    }
+  }
+  return result;
+}
+
+// Generate animated GIF from captured frames using gif.js
+function generateGIF(animFrames, size) {
+  return new Promise((resolve, reject) => {
+    const gif = new GIF({
+      workers: 2,
+      quality: 10,
+      width: size,
+      height: size,
+      workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js',
+      transparent: null,
+    });
+
+    for (const frame of animFrames) {
+      gif.addFrame(frame.canvas, { delay: frame.delayMs, copy: true });
+    }
+
+    gif.on('finished', (blob) => resolve(blob));
+    gif.on('error', (err) => reject(err));
+    gif.render();
+  });
+}
+
+// Generate sprite sheet (horizontal strip) + CSS keyframes
+function generateSpriteSheet(animFrames, size) {
+  const count = animFrames.length;
+  const canvas = document.createElement('canvas');
+  canvas.width = size * count;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  for (let i = 0; i < count; i++) {
+    ctx.drawImage(animFrames[i].canvas, i * size, 0);
+  }
+
+  // Calculate total duration
+  let totalMs = 0;
+  for (const f of animFrames) totalMs += f.delayMs;
+
+  // Build CSS keyframes with per-frame percentages
+  let css = `/* Jenner Logo Sprite Animation */\n`;
+  css += `.jenner-logo {\n`;
+  css += `  width: ${size}px;\n`;
+  css += `  height: ${size}px;\n`;
+  css += `  background-size: ${size * count}px ${size}px;\n`;
+  css += `  animation: jenner-rotate ${(totalMs / 1000).toFixed(2)}s steps(1) infinite;\n`;
+  css += `}\n\n`;
+  css += `@keyframes jenner-rotate {\n`;
+
+  let elapsed = 0;
+  for (let i = 0; i < count; i++) {
+    const pct = ((elapsed / totalMs) * 100).toFixed(2);
+    css += `  ${pct}% { background-position: -${i * size}px 0; }\n`;
+    elapsed += animFrames[i].delayMs;
+  }
+  css += `  100% { background-position: 0 0; }\n`;
+  css += `}\n`;
+
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      resolve({ png: blob, css });
+    }, 'image/png');
+  });
+}
+
+// Generate APNG from captured frames
+function generateAPNG(animFrames, size) {
+  // Encode each frame as PNG ArrayBuffer, then assemble APNG
+  const framePNGs = [];
+
+  function canvasToPNGArrayBuffer(canvas) {
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        blob.arrayBuffer().then(resolve);
+      }, 'image/png');
+    });
+  }
+
+  return Promise.all(animFrames.map(f => canvasToPNGArrayBuffer(f.canvas))).then(pngBuffers => {
+    // Parse each PNG to extract IDAT chunks and the IHDR from the first
+    function parsePNG(buf) {
+      const view = new DataView(buf);
+      const chunks = [];
+      let offset = 8; // skip PNG signature
+      while (offset < buf.byteLength) {
+        const length = view.getUint32(offset);
+        const typeBytes = new Uint8Array(buf, offset + 4, 4);
+        const type = String.fromCharCode(...typeBytes);
+        const data = new Uint8Array(buf, offset + 8, length);
+        chunks.push({ type, data, length });
+        offset += 12 + length; // 4 len + 4 type + data + 4 crc
+      }
+      return chunks;
+    }
+
+    const allParsed = pngBuffers.map(parsePNG);
+    const firstIHDR = allParsed[0].find(c => c.type === 'IHDR');
+    const numFrames = animFrames.length;
+
+    // Helper: compute CRC32
+    let crcTable = null;
+    function makeCRCTable() {
+      const t = new Uint32Array(256);
+      for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        t[n] = c;
+      }
+      return t;
+    }
+    function crc32(buf) {
+      if (!crcTable) crcTable = makeCRCTable();
+      let crc = 0xFFFFFFFF;
+      for (let i = 0; i < buf.length; i++) crc = crcTable[(crc ^ buf[i]) & 0xFF] ^ (crc >>> 8);
+      return (crc ^ 0xFFFFFFFF) >>> 0;
+    }
+
+    // Helper: create a chunk (returns Uint8Array for length+type+data+crc)
+    function makeChunk(type, data) {
+      const typeArr = new Uint8Array([...type].map(c => c.charCodeAt(0)));
+      const buf = new Uint8Array(12 + data.length);
+      const view = new DataView(buf.buffer);
+      view.setUint32(0, data.length);
+      buf.set(typeArr, 4);
+      buf.set(data, 8);
+      // CRC over type+data
+      const crcBuf = new Uint8Array(4 + data.length);
+      crcBuf.set(typeArr, 0);
+      crcBuf.set(data, 4);
+      view.setUint32(8 + data.length, crc32(crcBuf));
+      return buf;
+    }
+
+    // Build APNG
+    const parts = [];
+
+    // PNG signature
+    parts.push(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+
+    // IHDR chunk (from first frame)
+    parts.push(makeChunk('IHDR', firstIHDR.data));
+
+    // acTL (animation control) — 8 bytes: num_frames (4), num_plays=0 (4, infinite)
+    const acTLData = new Uint8Array(8);
+    const acTLView = new DataView(acTLData.buffer);
+    acTLView.setUint32(0, numFrames);
+    acTLView.setUint32(4, 0); // loop forever
+    parts.push(makeChunk('acTL', acTLData));
+
+    let seqNum = 0;
+
+    for (let i = 0; i < numFrames; i++) {
+      const delayMs = animFrames[i].delayMs;
+      // Simplify delay fraction: delayMs/1000 -> num/den
+      const delayNum = delayMs;
+      const delayDen = 1000;
+
+      // fcTL (frame control) — 26 bytes
+      const fcTLData = new Uint8Array(26);
+      const fcTLView = new DataView(fcTLData.buffer);
+      fcTLView.setUint32(0, seqNum++);     // sequence_number
+      fcTLView.setUint32(4, size);          // width
+      fcTLView.setUint32(8, size);          // height
+      fcTLView.setUint32(12, 0);           // x_offset
+      fcTLView.setUint32(16, 0);           // y_offset
+      fcTLView.setUint16(20, delayNum);    // delay_num
+      fcTLView.setUint16(22, delayDen);    // delay_den
+      fcTLData[24] = 0;                     // dispose_op: APNG_DISPOSE_OP_NONE
+      fcTLData[25] = 0;                     // blend_op: APNG_BLEND_OP_SOURCE
+      parts.push(makeChunk('fcTL', fcTLData));
+
+      // Get IDAT data from this frame's PNG
+      const idatChunks = allParsed[i].filter(c => c.type === 'IDAT');
+
+      if (i === 0) {
+        // First frame uses IDAT (for backwards compatibility with non-APNG viewers)
+        for (const chunk of idatChunks) {
+          parts.push(makeChunk('IDAT', chunk.data));
+        }
+      } else {
+        // Subsequent frames use fdAT (= sequence_number + IDAT data)
+        for (const chunk of idatChunks) {
+          const fdATData = new Uint8Array(4 + chunk.data.length);
+          const fdATView = new DataView(fdATData.buffer);
+          fdATView.setUint32(0, seqNum++);
+          fdATData.set(chunk.data, 4);
+          parts.push(makeChunk('fdAT', fdATData));
+        }
+      }
+    }
+
+    // IEND
+    parts.push(makeChunk('IEND', new Uint8Array(0)));
+
+    // Concatenate all parts
+    let totalLen = 0;
+    for (const p of parts) totalLen += p.length;
+    const result = new Uint8Array(totalLen);
+    let off = 0;
+    for (const p of parts) {
+      result.set(p, off);
+      off += p.length;
+    }
+
+    return new Blob([result], { type: 'image/png' });
+  });
+}
+
 // Convert canvas to blob (Promise-based)
 function canvasToBlob(canvas) {
   return new Promise((resolve) => {
@@ -2062,6 +2368,8 @@ document.getElementById('export-btn').addEventListener('click', async () => {
     }
     totalRenders *= variationKeys.length; // PNG renders
     totalRenders += variationKeys.length;  // SVG renders
+    // Animation renders: 4 outputs per variation (GIF 256, GIF 512, sprite, APNG)
+    totalRenders += variationKeys.length * 4;
     let completedRenders = 0;
 
     const zip = new JSZip();
@@ -2107,6 +2415,57 @@ document.getElementById('export-btn').addEventListener('click', async () => {
       const pct = Math.round((completedRenders / totalRenders) * 100);
       progressBar.value = pct;
       statusEl.textContent = `Generating SVG (${vk})... (${pct}%)`;
+    }
+
+    // Generate Animations
+    const animFolder = root.folder('animation');
+    for (const vk of variationKeys) {
+      const v = variations[vk];
+      statusEl.textContent = `Generating animations (${vk})...`;
+      await new Promise(r => setTimeout(r, 0)); // yield to UI
+
+      // Capture frames at 256px
+      const frames256 = captureAnimationFrames(
+        256, v.bg || '#000000', v.dot, edShape,
+        edDotRatio, v.transparent, edFrames, edWeightFrames, edTimings, edLoopStart
+      );
+
+      // GIF at 256px
+      const gif256Blob = await generateGIF(frames256, 256);
+      animFolder.file(`logo-${vk}.gif`, gif256Blob);
+      completedRenders++;
+      progressBar.value = Math.round((completedRenders / totalRenders) * 100);
+      statusEl.textContent = `Animation: GIF 256 (${vk})`;
+      await new Promise(r => setTimeout(r, 0));
+
+      // GIF at 512px
+      const frames512 = captureAnimationFrames(
+        512, v.bg || '#000000', v.dot, edShape,
+        edDotRatio, v.transparent, edFrames, edWeightFrames, edTimings, edLoopStart
+      );
+      const gif512Blob = await generateGIF(frames512, 512);
+      animFolder.file(`logo-${vk}-512.gif`, gif512Blob);
+      completedRenders++;
+      progressBar.value = Math.round((completedRenders / totalRenders) * 100);
+      statusEl.textContent = `Animation: GIF 512 (${vk})`;
+      await new Promise(r => setTimeout(r, 0));
+
+      // Sprite sheet at 256px (reuse frames256)
+      const sprite = await generateSpriteSheet(frames256, 256);
+      animFolder.file(`sprite-${vk}.png`, sprite.png);
+      animFolder.file(`sprite-${vk}.css`, sprite.css);
+      completedRenders++;
+      progressBar.value = Math.round((completedRenders / totalRenders) * 100);
+      statusEl.textContent = `Animation: sprite (${vk})`;
+      await new Promise(r => setTimeout(r, 0));
+
+      // APNG at 256px (reuse frames256)
+      const apngBlob = await generateAPNG(frames256, 256);
+      animFolder.file(`logo-${vk}.apng`, apngBlob);
+      completedRenders++;
+      progressBar.value = Math.round((completedRenders / totalRenders) * 100);
+      statusEl.textContent = `Animation: APNG (${vk})`;
+      await new Promise(r => setTimeout(r, 0));
     }
 
     // Generate ZIP
