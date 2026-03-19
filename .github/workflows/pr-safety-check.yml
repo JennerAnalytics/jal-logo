@@ -1,0 +1,35 @@
+name: PR Safety Check
+
+on:
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  check-deletions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for mass file deletions
+        run: |
+          MAX_DELETED_FILES=50
+          MIN_TREE_FILES=350
+
+          BASE=${{ github.event.pull_request.base.sha }}
+          HEAD=${{ github.event.pull_request.head.sha }}
+
+          DELETED=$(git diff --diff-filter=D --name-only "$BASE" "$HEAD" | wc -l)
+          ADDED=$(git diff --diff-filter=A --name-only "$BASE" "$HEAD" | wc -l)
+          TREE_FILES=$(git ls-tree -r HEAD | wc -l)
+
+          echo "Files deleted: $DELETED / added: $ADDED / tree: $TREE_FILES"
+
+          FAILED=0
+          [ "$DELETED" -gt "$MAX_DELETED_FILES" ] && echo "::error::Deletes $DELETED files (max 50)" && FAILED=1
+          [ "$TREE_FILES" -lt "$MIN_TREE_FILES" ] && echo "::error::Only $TREE_FILES files left (min 350)" && FAILED=1
+          [ "$DELETED" -gt 10 ] && [ "$ADDED" -eq 0 ] && echo "::error::Delete-only PR" && FAILED=1
+
+          [ "$FAILED" -eq 1 ] && exit 1
+          echo "Safety check passed."

@@ -1,0 +1,36 @@
+#!/bin/bash
+# Pre-commit safety hook: blocks mass deletions.
+# Install: cp scripts/hooks/pre-commit-safety .git/hooks/pre-commit
+#
+# Repo: jal-logo (tracked files: ~441)
+# Thresholds set above observed p99.9 to avoid false positives.
+
+MAX_DELETED_FILES=50
+MIN_TREE_FILES=350
+
+DELETED=$(git diff --cached --diff-filter=D --name-only | wc -l)
+ADDED=$(git diff --cached --diff-filter=A --name-only | wc -l)
+CURRENT_FILES=$(git ls-files | wc -l)
+AFTER_FILES=$((CURRENT_FILES - DELETED + ADDED))
+
+if [ "$DELETED" -gt "$MAX_DELETED_FILES" ]; then
+    echo ""
+    echo "  BLOCKED: This commit deletes $DELETED files (threshold: $MAX_DELETED_FILES)"
+    echo "  Use --no-verify to override if intentional."
+    exit 1
+fi
+
+if [ "$AFTER_FILES" -lt "$MIN_TREE_FILES" ]; then
+    echo ""
+    echo "  BLOCKED: Commit would leave $AFTER_FILES files (minimum: $MIN_TREE_FILES)"
+    echo "  This usually means git add -A in a broken worktree."
+    exit 1
+fi
+
+if [ "$DELETED" -gt 10 ] && [ "$ADDED" -eq 0 ]; then
+    echo ""
+    echo "  BLOCKED: Delete-only commit ($DELETED files, 0 additions)"
+    exit 1
+fi
+
+exit 0
