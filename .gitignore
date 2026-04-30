@@ -1,0 +1,12 @@
+# Local working directory for utilities, probes, and intermediate artifacts
+# (per /Users/lwsinclair/.claude/CLAUDE.md: "Create a ./temp file. Put utilities
+# you create to help you solve problems in here.")
+temp/
+
+# `.icon` build artefacts produced by `xcrun actool` (Assets.car, .icns,
+# partial.plist). Source bundles in `assets/icon-tahoe/` ARE committed; their
+# sibling `*.compiled/` directories are not.
+assets/icon-tahoe/**/*.compiled/
+
+# macOS
+.DS_Store

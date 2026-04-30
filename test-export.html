@@ -995,6 +995,145 @@ addTest(catRot, 'All build-up sequences end at canonical matrix', () => {
   return 'All 7 variants: last build-up frame = canonical';
 });
 
+// --- 7. Apple .icon (Tahoe layered) bundle structure ---
+// These tests mirror the manifest-construction logic in prototype.html and
+// gen_icon_tahoe.py without taking a runtime dependency on either; they
+// validate that the generated icon.json matches the schema verified against
+// real Apple Icon Composer outputs (samples in temp/icon-samples/) and
+// against `xcrun actool --compile`.
+
+const catIcon = createCategory('Tahoe .icon Bundles');
+
+// Helpers (kept local to the test fixture to mirror the production pair)
+function _hexToRgba(hex) {
+  const s = (hex || '#000000').replace('#', '');
+  const r = parseInt(s.slice(0, 2), 16) / 255;
+  const g = parseInt(s.slice(2, 4), 16) / 255;
+  const b = parseInt(s.slice(4, 6), 16) / 255;
+  const a = s.length === 8 ? parseInt(s.slice(6, 8), 16) / 255 : 1;
+  return [r, g, b, a];
+}
+function _iconColorLiteral(hex, space) {
+  const [r, g, b, a] = _hexToRgba(hex);
+  const fmt = (n) => n.toFixed(5);
+  return `${space || 'srgb'}:${fmt(r)},${fmt(g)},${fmt(b)},${fmt(a)}`;
+}
+function _buildIconJsonManifest(bgHex, dotHex, vk) {
+  // Mirrors prototype.html's buildIconJsonManifest. Keep in sync with that
+  // function and gen_icon_tahoe.py's COLOR_SCHEMES. See README §Locked-defaults.
+  const isOriginal = vk === 'original';
+  const isDark = vk === 'original' || vk === 'on-black' ||
+                 vk === 'mono-on-black' || vk === 'color-on-black' ||
+                 vk === 'dark-transparent';
+  const useP3 = (vk === 'original' || vk === 'color-on-white' || vk === 'color-on-black');
+  const wantsGlass = (vk !== 'mono-on-white' && vk !== 'on-white');
+  // original-amber is brand-locked at 0.3 (2026-04-30). Other schemes remain
+  // provisional at 0.5/0.3 until they go through visual review.
+  const translucency = isOriginal ? 0.3 : (isDark ? 0.5 : 0.3);
+  const shadowOpacity = isOriginal ? 0.3 : 0.5;
+  const layer = {
+    'image-name': 'dots.svg',
+    'name': 'dots',
+    'fill': { 'solid': _iconColorLiteral(dotHex, useP3 ? 'display-p3' : 'srgb') },
+  };
+  if (wantsGlass) layer.glass = true;
+  const group = {
+    'layers': [layer],
+    'shadow': { 'kind': 'neutral', 'opacity': shadowOpacity },
+    'translucency': { 'enabled': true, 'value': translucency },
+  };
+  if (wantsGlass) group.specular = true;
+  return {
+    'fill': { 'solid': _iconColorLiteral(bgHex, 'srgb') },
+    'groups': [group],
+    'supported-platforms': { 'squares': ['macOS'] },
+  };
+}
+
+addTest(catIcon, 'icon.json has required top-level keys', () => {
+  const m = _buildIconJsonManifest('#1c1c1e', '#e8a435', 'original');
+  for (const k of ['fill', 'groups', 'supported-platforms']) {
+    if (!(k in m)) throw new Error(`Missing top-level key: ${k}`);
+  }
+  return 'fill, groups, supported-platforms all present';
+});
+
+addTest(catIcon, 'fill uses solid + valid color literal', () => {
+  const m = _buildIconJsonManifest('#1c1c1e', '#e8a435', 'original');
+  if (!m.fill || typeof m.fill !== 'object') throw new Error('fill not object');
+  if (!('solid' in m.fill)) throw new Error('fill missing solid key');
+  // sRGB:R,G,B,A pattern
+  if (!/^srgb:\d\.\d{5},\d\.\d{5},\d\.\d{5},\d\.\d{5}$/.test(m.fill.solid)) {
+    throw new Error(`Bad color literal: ${m.fill.solid}`);
+  }
+  return m.fill.solid;
+});
+
+addTest(catIcon, 'groups[0] has shadow {kind, opacity} + translucency', () => {
+  const m = _buildIconJsonManifest('#1c1c1e', '#e8a435', 'original');
+  const g = m.groups[0];
+  if (!g.shadow || g.shadow.kind !== 'neutral') throw new Error('shadow.kind != neutral');
+  if (typeof g.shadow.opacity !== 'number') throw new Error('shadow.opacity not number');
+  if (!g.translucency || typeof g.translucency.enabled !== 'boolean') {
+    throw new Error('translucency missing enabled');
+  }
+  return `shadow.opacity=${g.shadow.opacity}, translucency.value=${g.translucency.value}`;
+});
+
+addTest(catIcon, 'amber dots use display-p3 colour space', () => {
+  const m = _buildIconJsonManifest('#1c1c1e', '#e8a435', 'original');
+  const fill = m.groups[0].layers[0].fill;
+  if (!fill || !fill.solid) throw new Error('layer fill missing solid');
+  if (!fill.solid.startsWith('display-p3:')) {
+    throw new Error(`amber should use display-p3, got: ${fill.solid}`);
+  }
+  return fill.solid;
+});
+
+addTest(catIcon, 'mono-on-white disables glass + specular', () => {
+  const m = _buildIconJsonManifest('#ffffff', '#1c1c1e', 'mono-on-white');
+  const layer = m.groups[0].layers[0];
+  if (layer.glass) throw new Error('mono-on-white should not have glass');
+  if (m.groups[0].specular) throw new Error('mono-on-white should not have specular');
+  return 'glass=false, specular=false (flat presentation)';
+});
+
+addTest(catIcon, 'amber-on-dark sets glass + specular', () => {
+  const m = _buildIconJsonManifest('#1c1c1e', '#e8a435', 'original');
+  const layer = m.groups[0].layers[0];
+  if (!layer.glass) throw new Error('original should have glass=true');
+  if (!m.groups[0].specular) throw new Error('original should have specular=true');
+  return 'glass=true, specular=true (Liquid-Glass treatment)';
+});
+
+addTest(catIcon, 'supported-platforms.squares is non-empty array', () => {
+  const m = _buildIconJsonManifest('#1c1c1e', '#e8a435', 'original');
+  const sp = m['supported-platforms'];
+  if (!sp || !Array.isArray(sp.squares)) throw new Error('squares not array');
+  if (sp.squares.length === 0) throw new Error('squares array empty');
+  if (!sp.squares.includes('macOS')) throw new Error('squares missing macOS');
+  return sp.squares.join(', ');
+});
+
+addTest(catIcon, 'manifest serialises to round-tripping JSON', () => {
+  const m = _buildIconJsonManifest('#1c1c1e', '#e8a435', 'original');
+  const s = JSON.stringify(m, null, 2);
+  const parsed = JSON.parse(s);
+  if (JSON.stringify(parsed) !== JSON.stringify(m)) {
+    throw new Error('JSON round-trip mismatch');
+  }
+  return `${s.length} bytes JSON`;
+});
+
+addTest(catIcon, 'color literal parser handles 6-digit and 8-digit hex', () => {
+  const c6 = _iconColorLiteral('#e8a435', 'srgb');
+  const c8 = _iconColorLiteral('#e8a43580', 'srgb');
+  if (!c6.endsWith(',1.00000')) throw new Error(`6-digit alpha != 1: ${c6}`);
+  // 0x80 / 0xff = 0.50196...
+  if (!c8.match(/,0\.50196$/)) throw new Error(`8-digit alpha wrong: ${c8}`);
+  return `${c6} | ${c8}`;
+});
+
 // ============ INIT ============
 
 document.getElementById('run-btn').addEventListener('click', runAllTests);

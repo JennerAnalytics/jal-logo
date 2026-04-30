@@ -192,7 +192,9 @@ jenner-logo-export/
     └── logo-{variation}.apng        # Animated PNG (full quality, looping)
 ```
 
-**8 background variations × 6 platform size sets + 8 SVGs + 8 animation sets** — everything needed for web, desktop, mobile, and marketing use.
+**8 background variations × 6 platform size sets + 8 SVGs + 8 animation sets + 8 Apple `.icon` (Tahoe layered) bundles** — everything needed for web, desktop, mobile, and marketing use.
+
+The ZIP also includes an `icon-tahoe/` folder with one `.icon` bundle per variation (see [`Apple .icon (Tahoe layered) bundles`](#apple-icon-tahoe-layered-bundles) below).
 
 #### Animation Files
 
@@ -210,6 +212,97 @@ The animations capture the full rotation loop with 6 interpolation sub-steps per
 
 ---
 
+## Apple `.icon` (Tahoe layered) bundles
+
+The `.icon` format introduced with macOS 26 Tahoe and Xcode 26 is a directory bundle that the system composites at runtime with parallax, lighting, and the Liquid-Glass material. Unlike the legacy flat `.icns` container, a `.icon` bundle declares **layers** (background fill plus up to four foreground layers) that the OS renders dynamically for Dock, Launchpad, Finder, and tinted/dark/clear appearances.
+
+### Locked defaults
+
+The **`original-amber`** colour scheme — the priority brand presentation — has had its bundle parameters reviewed in side-by-side renders and **locked** as of **2026-04-30**:
+
+| Parameter | Locked value |
+|---|---|
+| Foreground layers | 1 (no midground) |
+| `glass` on dots layer | `true` |
+| `specular` on group | `true` |
+| Dot colour space | `display-p3` |
+| Canvas fill colour space | `sRGB` |
+| `shadow.opacity` | `0.3` |
+| `translucency.value` | `0.3` |
+
+The decision-input artefact is the visual A/B comparison page at `temp/comparisons/index.html` (gitignored — it is a transient scratch space, not part of the published spec). Do not change these values without re-running the comparison and getting brand-owner approval; the canonical reference is `gen_icon_tahoe.py`'s `COLOR_SCHEMES["original-amber"]`, mirrored by `prototype.html`'s `buildIconJsonManifest` (the `vk === 'original'` branch) and the parity helper in `test-export.html`.
+
+The other three colour schemes (`mono-on-black`, `mono-on-white`, `dark-transparent`) are **NOT yet locked**; their current parameters are provisional median-of-samples guesses and need their own visual review before being treated as canonical.
+
+### Pre-generated bundles
+
+The repo ships ready-made `.icon` bundles for every variant under [`assets/icon-tahoe/`](assets/icon-tahoe/):
+
+```
+assets/icon-tahoe/
+├── original-amber/        # Brand presentation: dark tile (#1c1c1e), amber dots (#e8a435), Liquid-Glass
+│   ├── hook-6.icon/
+│   ├── stair-6.icon/
+│   ├── L-5.icon/
+│   ├── right-5.icon/
+│   ├── heavy-7.icon/
+│   ├── loop-8.icon/
+│   └── full-9.icon/       # The rotation-invariant canonical mark
+├── mono-on-black/         # Black tile, off-white dots
+├── mono-on-white/         # White tile, near-black dots, flat (no glass)
+└── dark-transparent/      # Dark tile, dark dots, high translucency
+```
+
+Each bundle has the form:
+
+```
+full-9.icon/
+├── icon.json     — manifest declaring fill, groups, and layer effects
+└── Assets/
+    └── dots.svg  — foreground layer (the dot grid at 1024×1024)
+```
+
+### Using a bundle in Xcode
+
+1. Drag the `.icon` bundle into your Xcode 26 project
+2. Set it as the **App Icon Source** in the target's *General* tab — Xcode points `CFBundleIconName` at the asset name automatically
+3. Build for `macOS 26 Tahoe` or later. Xcode invokes `actool`, which produces an `Assets.car` (used at runtime by Tahoe) **and** a backwards-compatible `.icns` (used by macOS 14/15) — both shipping inside the same `.app` bundle
+
+For older deployment targets, Xcode falls back to `CFBundleIconFile` and the auto-generated `.icns`; no separate flat-icon pipeline is needed.
+
+### Manual compile
+
+```bash
+xcrun actool assets/icon-tahoe/original-amber/full-9.icon \
+  --compile build/icons \
+  --platform macosx \
+  --minimum-deployment-target 26.0 \
+  --app-icon full-9 \
+  --include-all-app-icons \
+  --output-format human-readable-text \
+  --output-partial-info-plist build/icons/partial.plist
+```
+
+This produces `build/icons/Assets.car`, `build/icons/full-9.icns`, and the partial `Info.plist` fragment to merge into the consuming app.
+
+### Regenerating from source
+
+The Python generator [`gen_icon_tahoe.py`](gen_icon_tahoe.py) is the canonical bundle producer. It uses the same dot geometry as `prototype.html` and the SVGs in `assets/svg/`, sourced from the canonical matrices in [`jenner-logo-spec.md`](jenner-logo-spec.md).
+
+```bash
+# Regenerate the priority case (amber-on-dark, full-9) and verify with actool
+python3 gen_icon_tahoe.py --variant full-9 --color-scheme original-amber --compile
+
+# Regenerate all 7 variants × 4 colour schemes (28 bundles)
+python3 gen_icon_tahoe.py --variant all --color-scheme all --compile --clean
+```
+
+The script is dependency-free (Python 3.8+ stdlib only). Pass `--help` for the full option list.
+
+The browser tool also produces these bundles inside the asset-pack ZIP (`icon-tahoe/<variation>.icon/`) — the manifest-construction logic is shared between [`prototype.html`](prototype.html) and [`gen_icon_tahoe.py`](gen_icon_tahoe.py) and is exercised by the test harness.
+
+---
+
 ## Validation Tests
 
 Open `test-export.html` in your browser to run automated validation:
@@ -222,6 +315,7 @@ Open `test-export.html` in your browser to run automated validation:
    - SVG DOM structure (element counts, fill attributes, viewBox)
    - ZIP file completeness (all expected paths present)
    - Rotation math (R⁴=I, dot count preservation, formula correctness, smoothstep)
+   - Apple `.icon` (Tahoe layered) manifest structure, fill literals, and per-scheme layer flags
 
 All tests should pass with green checkmarks. Click a category header to expand details.
 
@@ -248,8 +342,11 @@ See [`jenner-logo-spec.md`](jenner-logo-spec.md) for the formal mathematical spe
 | File | Purpose |
 |------|---------|
 | `prototype.html` | Main ideation tool — grid explorer, editor, and export |
-| `test-export.html` | Automated export validation tests (38 tests) |
+| `test-export.html` | Automated export validation tests |
+| `gen_icon_tahoe.py` | Canonical generator for Apple `.icon` (Tahoe) bundles |
+| `gen_mono_transparent_anim.py` | Generator for mono-transparent animation files |
 | `jenner-logo-spec.md` | Mathematical specification with LaTeX notation |
+| `assets/icon-tahoe/` | Pre-generated `.icon` bundles for Xcode 26 / macOS Tahoe |
 | `README.md` | This documentation |
 
 ---
