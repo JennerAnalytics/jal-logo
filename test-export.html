@@ -1019,11 +1019,18 @@ function _iconColorLiteral(hex, space) {
   return `${space || 'srgb'}:${fmt(r)},${fmt(g)},${fmt(b)},${fmt(a)}`;
 }
 function _buildIconJsonManifest(bgHex, dotHex, vk) {
+  // Mirrors prototype.html's buildIconJsonManifest. Keep in sync with that
+  // function and gen_icon_tahoe.py's COLOR_SCHEMES. See README §Locked-defaults.
+  const isOriginal = vk === 'original';
   const isDark = vk === 'original' || vk === 'on-black' ||
                  vk === 'mono-on-black' || vk === 'color-on-black' ||
                  vk === 'dark-transparent';
   const useP3 = (vk === 'original' || vk === 'color-on-white' || vk === 'color-on-black');
   const wantsGlass = (vk !== 'mono-on-white' && vk !== 'on-white');
+  // original-amber is brand-locked at 0.3 (2026-04-30). Other schemes remain
+  // provisional at 0.5/0.3 until they go through visual review.
+  const translucency = isOriginal ? 0.3 : (isDark ? 0.5 : 0.3);
+  const shadowOpacity = isOriginal ? 0.3 : 0.5;
   const layer = {
     'image-name': 'dots.svg',
     'name': 'dots',
@@ -1032,8 +1039,8 @@ function _buildIconJsonManifest(bgHex, dotHex, vk) {
   if (wantsGlass) layer.glass = true;
   const group = {
     'layers': [layer],
-    'shadow': { 'kind': 'neutral', 'opacity': 0.5 },
-    'translucency': { 'enabled': true, 'value': isDark ? 0.5 : 0.3 },
+    'shadow': { 'kind': 'neutral', 'opacity': shadowOpacity },
+    'translucency': { 'enabled': true, 'value': translucency },
   };
   if (wantsGlass) group.specular = true;
   return {

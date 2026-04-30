@@ -151,8 +151,21 @@ class ColorScheme:
     specular: bool     # apply specular highlight to the group
     translucency: float  # 0..1, glass refraction strength
     use_p3_for_dots: bool  # use display-p3 colour-space for richer amber
+    shadow_opacity: float = 0.5  # 0..1, drop-shadow strength on the group
 
 # original-amber is the priority brand presentation: dark tile + amber dots
+#
+# Brand-locked defaults for original-amber as of 2026-04-30. Do not change
+# without a fresh visual A/B and brand-owner approval. The locked parameters
+# are: single foreground layer (no midground), glass=True on the dots layer,
+# specular=True on the group, dot colour in display-p3, neutral fill in sRGB,
+# shadow.opacity=0.3, translucency.value=0.3. The 0.3 values supersede the
+# original 0.5 median-of-samples guesses after visual review of side-by-side
+# renders (see temp/comparisons/index.html — gitignored decision provenance).
+#
+# Other color schemes (mono-on-black, mono-on-white, dark-transparent) are
+# NOT yet locked — keep their defaults provisional until they go through the
+# same visual review. See README "Locked defaults" subsection.
 COLOR_SCHEMES: Dict[str, ColorScheme] = {
     "original-amber": ColorScheme(
         name="original-amber",
@@ -160,8 +173,9 @@ COLOR_SCHEMES: Dict[str, ColorScheme] = {
         dot_hex="#e8a435",
         glass=True,
         specular=True,
-        translucency=0.5,
+        translucency=0.3,  # LOCKED 2026-04-30 (was 0.5)
         use_p3_for_dots=True,
+        shadow_opacity=0.3,  # LOCKED 2026-04-30 (was 0.5)
     ),
     "mono-on-black": ColorScheme(
         name="mono-on-black",
@@ -295,7 +309,7 @@ def build_icon_json(scheme: ColorScheme, dots_filename: str = "dots.svg") -> dic
 
     group = {
         "layers": [layer],
-        "shadow": {"kind": "neutral", "opacity": 0.5},
+        "shadow": {"kind": "neutral", "opacity": float(scheme.shadow_opacity)},
         "translucency": {
             "enabled": bool(scheme.translucency > 0),
             "value": float(scheme.translucency),

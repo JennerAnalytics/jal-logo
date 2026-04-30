@@ -216,6 +216,24 @@ The animations capture the full rotation loop with 6 interpolation sub-steps per
 
 The `.icon` format introduced with macOS 26 Tahoe and Xcode 26 is a directory bundle that the system composites at runtime with parallax, lighting, and the Liquid-Glass material. Unlike the legacy flat `.icns` container, a `.icon` bundle declares **layers** (background fill plus up to four foreground layers) that the OS renders dynamically for Dock, Launchpad, Finder, and tinted/dark/clear appearances.
 
+### Locked defaults
+
+The **`original-amber`** colour scheme — the priority brand presentation — has had its bundle parameters reviewed in side-by-side renders and **locked** as of **2026-04-30**:
+
+| Parameter | Locked value |
+|---|---|
+| Foreground layers | 1 (no midground) |
+| `glass` on dots layer | `true` |
+| `specular` on group | `true` |
+| Dot colour space | `display-p3` |
+| Canvas fill colour space | `sRGB` |
+| `shadow.opacity` | `0.3` |
+| `translucency.value` | `0.3` |
+
+The decision-input artefact is the visual A/B comparison page at `temp/comparisons/index.html` (gitignored — it is a transient scratch space, not part of the published spec). Do not change these values without re-running the comparison and getting brand-owner approval; the canonical reference is `gen_icon_tahoe.py`'s `COLOR_SCHEMES["original-amber"]`, mirrored by `prototype.html`'s `buildIconJsonManifest` (the `vk === 'original'` branch) and the parity helper in `test-export.html`.
+
+The other three colour schemes (`mono-on-black`, `mono-on-white`, `dark-transparent`) are **NOT yet locked**; their current parameters are provisional median-of-samples guesses and need their own visual review before being treated as canonical.
+
 ### Pre-generated bundles
 
 The repo ships ready-made `.icon` bundles for every variant under [`assets/icon-tahoe/`](assets/icon-tahoe/):

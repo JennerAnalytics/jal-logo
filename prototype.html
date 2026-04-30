@@ -2061,7 +2061,16 @@ function iconColorLiteral(hex, colorSpace) {
 // `vk` is the variation key (e.g. "original", "mono-on-black"); the choice
 // of glass/specular/translucency is tuned per visual treatment so the Tahoe
 // presentation reads well in light and dark contexts.
+//
+// Brand-locked defaults for original-amber (vk === 'original') as of
+// 2026-04-30: single foreground layer, glass + specular on, dots in
+// display-p3, shadow.opacity=0.3, translucency.value=0.3. Do not change
+// without a fresh visual A/B and brand-owner approval. Other vk values
+// (on-black, on-white, mono-*, color-*, dark-transparent) are NOT yet
+// locked — keep their defaults provisional. See README §Locked-defaults
+// and gen_icon_tahoe.py COLOR_SCHEMES for the canonical reference.
 function buildIconJsonManifest(bgHex, dotHex, vk) {
+  const isOriginal = vk === 'original';
   const isDark = vk === 'original' || vk === 'on-black' ||
                  vk === 'mono-on-black' || vk === 'color-on-black' ||
                  vk === 'dark-transparent';
@@ -2073,7 +2082,12 @@ function buildIconJsonManifest(bgHex, dotHex, vk) {
   // tiles; flat treatments (mono-on-white) read better without glass.
   const wantsGlass = (vk !== 'mono-on-white' && vk !== 'on-white');
   const wantsSpecular = wantsGlass;
-  const translucency = isDark ? 0.5 : 0.3;
+  // original-amber is brand-locked at 0.3 (was 0.5). Other dark schemes
+  // remain at their provisional 0.5 until they go through visual review.
+  const translucency = isOriginal ? 0.3 : (isDark ? 0.5 : 0.3);
+  // Shadow opacity is locked at 0.3 for original-amber; provisional 0.5
+  // elsewhere.
+  const shadowOpacity = isOriginal ? 0.3 : 0.5;
 
   const layer = {
     'image-name': 'dots.svg',
@@ -2084,7 +2098,7 @@ function buildIconJsonManifest(bgHex, dotHex, vk) {
 
   const group = {
     'layers': [layer],
-    'shadow': { 'kind': 'neutral', 'opacity': 0.5 },
+    'shadow': { 'kind': 'neutral', 'opacity': shadowOpacity },
     'translucency': { 'enabled': translucency > 0, 'value': translucency },
   };
   if (wantsSpecular) group.specular = true;
