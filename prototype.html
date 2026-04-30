@@ -2021,6 +2021,81 @@ function generateExportSVG(svgSize, bgColor, dotColor, shape, matrix, weights, d
   return svg;
 }
 
+// ============ APPLE .icon (Tahoe layered) BUNDLE EXPORT ============
+//
+// A `.icon` bundle is the directory format consumed by Xcode 26 / macOS 26
+// Tahoe. It contains:
+//   icon.json   — manifest declaring layer groups, fills, and effects
+//   Assets/     — the layer images (SVG or PNG)
+//
+// Schema verified against real-world Apple Icon Composer outputs (collected
+// in temp/icon-samples/ during development) and against `actool --compile`,
+// which produces both an Assets.car (Tahoe / iOS 26+) and a backwards-
+// compatible .icns from the same bundle. See gen_icon_tahoe.py for the
+// canonical reference generator and full schema documentation.
+//
+// Color literal grammar accepted by Icon Composer:
+//   "srgb:R,G,B,A" | "display-p3:R,G,B,A" | "extended-srgb:..." |
+//   "extended-gray:V,A" | "gray:V,A"
+
+function hexToRgbaTuple(hex) {
+  const s = (hex || '#000000').replace('#', '');
+  if (s.length !== 6 && s.length !== 8) {
+    throw new Error('hexToRgbaTuple: expected 6 or 8 hex digits, got ' + hex);
+  }
+  const r = parseInt(s.slice(0, 2), 16) / 255;
+  const g = parseInt(s.slice(2, 4), 16) / 255;
+  const b = parseInt(s.slice(4, 6), 16) / 255;
+  const a = s.length === 8 ? parseInt(s.slice(6, 8), 16) / 255 : 1;
+  return [r, g, b, a];
+}
+
+function iconColorLiteral(hex, colorSpace) {
+  const [r, g, b, a] = hexToRgbaTuple(hex);
+  const space = colorSpace || 'srgb';
+  const fmt = (n) => n.toFixed(5);
+  return `${space}:${fmt(r)},${fmt(g)},${fmt(b)},${fmt(a)}`;
+}
+
+// Build the icon.json manifest for a single-foreground-layer Jenner mark.
+// `vk` is the variation key (e.g. "original", "mono-on-black"); the choice
+// of glass/specular/translucency is tuned per visual treatment so the Tahoe
+// presentation reads well in light and dark contexts.
+function buildIconJsonManifest(bgHex, dotHex, vk) {
+  const isDark = vk === 'original' || vk === 'on-black' ||
+                 vk === 'mono-on-black' || vk === 'color-on-black' ||
+                 vk === 'dark-transparent';
+  const useP3ForDots = (vk === 'original' || vk === 'color-on-white' || vk === 'color-on-black');
+  const dotColor = iconColorLiteral(dotHex, useP3ForDots ? 'display-p3' : 'srgb');
+  const bgColor = iconColorLiteral(bgHex, 'srgb');
+
+  // Glass + specular bring out the Tahoe Liquid-Glass treatment for branded
+  // tiles; flat treatments (mono-on-white) read better without glass.
+  const wantsGlass = (vk !== 'mono-on-white' && vk !== 'on-white');
+  const wantsSpecular = wantsGlass;
+  const translucency = isDark ? 0.5 : 0.3;
+
+  const layer = {
+    'image-name': 'dots.svg',
+    'name': 'dots',
+    'fill': { 'solid': dotColor },
+  };
+  if (wantsGlass) layer.glass = true;
+
+  const group = {
+    'layers': [layer],
+    'shadow': { 'kind': 'neutral', 'opacity': 0.5 },
+    'translucency': { 'enabled': translucency > 0, 'value': translucency },
+  };
+  if (wantsSpecular) group.specular = true;
+
+  return {
+    'fill': { 'solid': bgColor },
+    'groups': [group],
+    'supported-platforms': { 'squares': ['macOS'] },
+  };
+}
+
 // ============ ANIMATION EXPORT FUNCTIONS ============
 
 // Render an interpolated export canvas (between two frames)
@@ -2417,6 +2492,29 @@ document.getElementById('export-btn').addEventListener('click', async () => {
       const pct = Math.round((completedRenders / totalRenders) * 100);
       progressBar.value = pct;
       statusEl.textContent = `Generating SVG (${vk})... (${pct}%)`;
+    }
+
+    // Generate Apple .icon (Tahoe layered) bundles
+    // Schema verified against real-world Apple Icon Composer outputs and the
+    // Xcode 26.4.1 IconComposerFoundation framework string table; see
+    // gen_icon_tahoe.py for the canonical generator and bundle layout.
+    const iconRoot = root.folder('icon-tahoe');
+    for (const vk of variationKeys) {
+      const v = variations[vk];
+      // Tahoe icons must be square; transparent canvas isn't meaningful here
+      // (the OS paints the rounded-rect mask and applies its own background).
+      // We collapse the transparent variation to use a sensible fallback bg.
+      const bgHex = v.bg || '#1c1c1e';
+      const bundle = iconRoot.folder(`${vk}.icon`);
+      const assets = bundle.folder('Assets');
+      // Foreground SVG is the canonical dot field WITHOUT the background tile,
+      // sized to 1024px (Tahoe master). Reuse generateExportSVG with
+      // transparent=true so we get only the circles, then the icon.json fill
+      // paints the canvas underneath.
+      const dotsSvg = generateExportSVG(1024, v.bg, v.dot, edShape, matrix, weights, edDotRatio, /*transparent=*/true);
+      assets.file('dots.svg', dotsSvg);
+      const manifest = buildIconJsonManifest(bgHex, v.dot, vk);
+      bundle.file('icon.json', JSON.stringify(manifest, null, 2) + '\n');
     }
 
     // Generate Animations
