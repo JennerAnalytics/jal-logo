@@ -1,0 +1,33 @@
+{
+  "fill": {
+    "solid": "srgb:0.10980,0.10980,0.11765,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "fill": {
+            "solid": "srgb:0.10980,0.10980,0.11765,1.00000"
+          },
+          "glass": true,
+          "image-name": "dots.svg",
+          "name": "dots"
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "specular": true,
+      "translucency": {
+        "enabled": true,
+        "value": 0.6
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": [
+      "macOS"
+    ]
+  }
+}
